@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5DA37ACF2F158C7500135432 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37ACE2F158C7500135432 /* SettingsManager.swift */; };
+		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
+		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		770000001111111100000001 /* SpeedReadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000011 /* SpeedReadApp.swift */; };
 		770000001111111100000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000012 /* ContentView.swift */; };
 		770000001111111100000003 /* RSVPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000013 /* RSVPView.swift */; };
@@ -16,14 +19,17 @@
 		770000001111111100000007 /* RSVPViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000017 /* RSVPViewModel.swift */; };
 		770000001111111100000008 /* DocumentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000018 /* DocumentParser.swift */; };
 		770000001111111100000009 /* TextTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000019 /* TextTokenizer.swift */; };
+		77000000111111110000000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001A /* Assets.xcassets */; };
+		77000000111111110000000B /* EBGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001B /* EBGaramond-Regular.ttf */; };
 		77000000111111110000000C /* SampleText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001D /* SampleText.swift */; };
 		77000000111111110000000D /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001E /* LibraryManager.swift */; };
 		77000000111111110000000E /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001F /* LibraryView.swift */; };
-		77000000111111110000000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001A /* Assets.xcassets */; };
-		77000000111111110000000B /* EBGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001B /* EBGaramond-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5DA37ACE2F158C7500135432 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsManager.swift; path = SpeedRead/Services/SettingsManager.swift; sourceTree = "<group>"; };
+		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ParagraphView.swift; path = SpeedRead/Views/ParagraphView.swift; sourceTree = "<group>"; };
+		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = SpeedRead/Views/SettingsView.swift; sourceTree = "<group>"; };
 		770000001111111100000011 /* SpeedReadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedReadApp.swift; sourceTree = "<group>"; };
 		770000001111111100000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		770000001111111100000013 /* RSVPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSVPView.swift; sourceTree = "<group>"; };
@@ -56,6 +62,9 @@
 		770000001111111100000300 = {
 			isa = PBXGroup;
 			children = (
+				5DA37AD02F158C9000135432 /* ParagraphView.swift */,
+				5DA37AD12F158C9000135432 /* SettingsView.swift */,
+				5DA37ACE2F158C7500135432 /* SettingsManager.swift */,
 				770000001111111100000301 /* SpeedRead */,
 				770000001111111100000302 /* Products */,
 			);
@@ -202,6 +211,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				770000001111111100000001 /* SpeedReadApp.swift in Sources */,
+				5DA37ACF2F158C7500135432 /* SettingsManager.swift in Sources */,
+				5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */,
+				5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */,
 				770000001111111100000002 /* ContentView.swift in Sources */,
 				770000001111111100000003 /* RSVPView.swift in Sources */,
 				770000001111111100000004 /* WordDisplayView.swift in Sources */,

@@ -100,12 +100,21 @@ struct ParagraphTextView: UIViewRepresentable {
                 let glyphRange = uiView.layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
                 let rect = uiView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: uiView.textContainer)
                 
-                // Convert to content offset
-                let centeredY = rect.origin.y + rect.height/2 - uiView.bounds.height/2
+                // Calculate centered offset
+                // Target Y = rect.center.y
+                // View Center Y = view.height / 2
+                // Offset = Target Y - View Center Y
+                // Also account for content insets if any
                 
-                // Only animate if the distance is significant to avoid jitter, or just uses setContentOffset with animation
-                // But we want smooth scrolling. Text View scrollRangeToVisible is standard.
-                uiView.scrollRangeToVisible(range)
+                let targetCenterY = rect.midY + uiView.textContainerInset.top
+                let visibleHeight = uiView.bounds.height
+                let desiredOffsetY = targetCenterY - (visibleHeight / 2)
+                
+                // Clamp offset
+                let maxOffsetY = max(0, uiView.contentSize.height - visibleHeight)
+                let finalOffsetY = min(max(0, desiredOffsetY), maxOffsetY)
+                
+                uiView.setContentOffset(CGPoint(x: 0, y: finalOffsetY), animated: true)
             }
         }
     }
@@ -144,40 +153,55 @@ struct ParagraphTextView: UIViewRepresentable {
             guard let storage = textView.textStorage as NSTextStorage? else { return }
             
             // Apply highlight attributes
+            // Apply highlight attributes
             let highlightAttributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: UIColor(SettingsManager.shared.textColor), // Full Opacity
-                // We could add a background color if desired, but request was just "opaque"
-                // .backgroundColor: UIColor.yellow.withAlphaComponent(0.3)
+                .foregroundColor: UIColor(SettingsManager.shared.textColor),
+                .font: UIFont(name: parent.fontName, size: 24 * CGFloat(parent.fontSizeMultiplier))?.bold() ?? UIFont.systemFont(ofSize: 24 * CGFloat(parent.fontSizeMultiplier), weight: .bold)
+                // Use custom bold function or fallback
             ]
             
             storage.addAttributes(highlightAttributes, range: range)
-            
-            // Optional: Accent color for the specific word? user said "one word is highlighted".
-            // Implementation Plan said "Full opacity + Accent Color".
-            // Let's use Accent Color for even better visibility?
-            // "where one word is highlighted while the rest are lightly greyed out and less opaque" -> implies logic is opacity diff.
-            // But let's add bold or accent for clarity. The "Current Word" in RSVP is usually accented (red center).
-            // Let's just make it full opacity normal color for now to be strictly "paragraph form".
-            // Update: User request said "one word is highlighted". Standard highligher is yellow background or bold.
-            // Let's stick to Opacity 1.0 vs 0.3.
         }
         
         func updateHighlight(from oldIndex: Int, to newIndex: Int, in textView: UITextView, ranges: [Range<String.Index>], textColor: UIColor) {
             guard let storage = textView.textStorage as NSTextStorage? else { return }
             
+            // Re-resolve font for consistency
+            let pointSize = 24 * CGFloat(parent.fontSizeMultiplier)
+            let baseFont = UIFont(name: parent.fontName, size: pointSize) ?? UIFont.systemFont(ofSize: pointSize)
+            let boldFont = baseFont.bold()
+            
             if oldIndex >= 0 && oldIndex < ranges.count {
                 if let oldRange = parent.rangeToNSRange(ranges[oldIndex], in: textView.text) {
-                    // Reset to dimmed
-                    storage.addAttribute(.foregroundColor, value: textColor.withAlphaComponent(0.3), range: oldRange)
+                    // Reset to dimmed and normal weight
+                    let dimmedAttrs: [NSAttributedString.Key: Any] = [
+                        .foregroundColor: textColor.withAlphaComponent(0.3),
+                        .font: baseFont
+                    ]
+                    storage.setAttributes(dimmedAttrs, range: oldRange)
                 }
             }
             
             if newIndex >= 0 && newIndex < ranges.count {
                 if let newRange = parent.rangeToNSRange(ranges[newIndex], in: textView.text) {
-                    // Set to highlight
-                    storage.addAttribute(.foregroundColor, value: textColor, range: newRange)
+                    // Set to highlight and bold
+                    let highlightAttrs: [NSAttributedString.Key: Any] = [
+                        .foregroundColor: textColor,
+                        .font: boldFont
+                    ]
+                    storage.addAttributes(highlightAttrs, range: newRange)
                 }
             }
         }
+    }
+}
+
+// Helper to get bold version of custom font
+extension UIFont {
+    func bold() -> UIFont {
+        guard let descriptor = self.fontDescriptor.withSymbolicTraits(.traitBold) else {
+            return self
+        }
+        return UIFont(descriptor: descriptor, size: 0) // 0 keeps original size
     }
 }

@@ -11,7 +11,8 @@ struct ContentView: View {
     @State private var showContent = false
     
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+
+        ZStack {
             settings.backgroundColor
                 .ignoresSafeArea()
             
@@ -99,21 +100,24 @@ struct ContentView: View {
                     
                     Spacer()
                 }
-            }
-        }
-            // Settings Button
-            if !isReading {
-                Button(action: { showSettings = true }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 20))
-                        .foregroundColor(settings.secondaryTextColor)
-                        .padding()
-                        .background(Color.black.opacity(0.01)) // Increase touch target
+                
+                // Overlay Settings Button
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: { showSettings = true }) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 20))
+                                .foregroundColor(settings.secondaryTextColor)
+                                .padding()
+                                .background(Color.black.opacity(0.01)) // Increase touch target
+                        }
+                        .padding(.top, 40)
+                        .padding(.trailing, 20)
+                    }
+                    Spacer()
                 }
-                .padding(.top, 40)
-                .padding(.trailing, 20)
                 .opacity(showContent ? 1 : 0)
-                .transition(.opacity)
             }
         }
         .preferredColorScheme(settings.theme.colorScheme)
