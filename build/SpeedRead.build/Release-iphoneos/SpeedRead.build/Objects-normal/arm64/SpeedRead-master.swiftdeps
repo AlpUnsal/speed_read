@@ -1,0 +1,19 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "f640fea72c338d26eeb64a0677c466dd1966232886f2c5d40b41abdf4a192666"
+build_start_time: [1768245226, 733294000]
+build_end_time: [1768245238, 305841000]
+inputs:
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Resources/SampleText.swift": [1768242621, 63872550]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Services/DocumentParser.swift": [1768241109, 270045509]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Services/LibraryManager.swift": [1768244650, 538547501]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Services/TextTokenizer.swift": [1768233708, 450559975]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/SpeedReadApp.swift": [1768233658, 995481632]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/ViewModels/RSVPViewModel.swift": [1768244449, 940395506]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/ContentView.swift": [1768245094, 51503415]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/DocumentPicker.swift": [1768233698, 601082878]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/LibraryView.swift": [1768244370, 136358465]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/RSVPView.swift": [1768244430, 626178086]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/VerticalSlider.swift": [1768233785, 476751336]
+  "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/WordDisplayView.swift": [1768242856, 751741890]
+  ? "/Users/alp/Documents/coding/speed_read/build/SpeedRead.build/Release-iphoneos/SpeedRead.build/DerivedSources/GeneratedAssetSymbols.swift"
+  : [1768245226, 425466155]

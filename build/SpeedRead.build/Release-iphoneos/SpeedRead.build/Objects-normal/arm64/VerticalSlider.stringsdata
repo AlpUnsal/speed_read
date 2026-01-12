@@ -1,0 +1,24 @@
+{
+  "source": "/Users/alp/Documents/coding/speed_read/SpeedRead/Views/VerticalSlider.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 74
+        }
+      },
+      {
+        "comment": "",
+        "key": "WPM",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 78
+        }
+      }
+    ]
+  },
+  "version": 1
+}
