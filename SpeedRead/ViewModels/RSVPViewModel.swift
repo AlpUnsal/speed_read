@@ -31,8 +31,13 @@ class RSVPViewModel: ObservableObject {
         return 60000.0 / wordsPerMinute
     }
     
+    // MARK: - Debug
+    let id = UUID()
+    
     // MARK: - Initialization
-    init() {}
+    init() {
+        print("DEBUG_VM: Init \(id)")
+    }
     
     // MARK: - Public Methods
     func loadText(_ text: String, startingAt index: Int = 0) {
@@ -57,18 +62,21 @@ class RSVPViewModel: ObservableObject {
     }
     
     func play() {
+        print("DEBUG_VM: [\(id)] play() called")
         guard !words.isEmpty else { return }
         isPlaying = true
         scheduleNextWord()
     }
     
     func pause() {
+        print("DEBUG_VM: [\(id)] pause() called")
         isPlaying = false
         timer?.invalidate()
         timer = nil
     }
     
     func togglePlayPause() {
+        print("DEBUG_VM: [\(id)] togglePlayPause called. Current isPlaying: \(isPlaying)")
         if isPlaying {
             pause()
         } else {
@@ -93,6 +101,24 @@ class RSVPViewModel: ObservableObject {
         goToIndex(newIndex)
     }
     
+    func word(at index: Int) -> String {
+        guard index >= 0 && index < words.count else { return "" }
+        return words[index]
+    }
+    
+    func goToIndex(_ index: Int) {
+        let wasPlaying = isPlaying
+        if wasPlaying {
+            pause()
+        }
+        currentIndex = max(0, min(index, words.count - 1))
+        if currentIndex < words.count {
+            currentWord = words[currentIndex]
+        }
+        updateProgress()
+        // Don't auto-resume - let user press play
+    }
+    
     // MARK: - Private Methods
     private func scheduleNextWord() {
         guard isPlaying, currentIndex < words.count else {
@@ -114,19 +140,6 @@ class RSVPViewModel: ObservableObject {
             self.currentIndex += 1
             self.updateProgress()
             self.scheduleNextWord()
-        }
-    }
-    
-    private func goToIndex(_ index: Int) {
-        let wasPlaying = isPlaying
-        pause()
-        currentIndex = index
-        if currentIndex < words.count {
-            currentWord = words[currentIndex]
-        }
-        updateProgress()
-        if wasPlaying {
-            play()
         }
     }
     
