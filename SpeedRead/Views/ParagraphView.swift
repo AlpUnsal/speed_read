@@ -14,6 +14,7 @@ struct ParagraphView: View {
             fontName: settings.fontName,
             fontSizeMultiplier: settings.fontSizeMultiplier,
             theme: settings.theme,
+            textColor: settings.textColor,
             onTap: onTap
         )
         // Make text view background transparent so it sits on app background
@@ -28,6 +29,7 @@ struct ParagraphTextView: UIViewRepresentable {
     var fontName: String
     var fontSizeMultiplier: Double
     var theme: AppTheme
+    var textColor: Color // Add binding
     var onTap: () -> Void
     
     func makeCoordinator() -> Coordinator {
@@ -37,9 +39,9 @@ struct ParagraphTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.isEditable = false
-        textView.isSelectable = false // Prevent selection for smoother reading
+        textView.isSelectable = false
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 80, right: 20) // Bottom padding for controls
+        textView.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 80, right: 20)
         textView.showsVerticalScrollIndicator = true
         
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
@@ -51,27 +53,31 @@ struct ParagraphTextView: UIViewRepresentable {
     func updateUIView(_ uiView: UITextView, context: Context) {
         let coordinator = context.coordinator
         
-        // Check if we need to full reload (font, theme, or text changed)
-        // We use a simplified check: if text length differs or theme/font changed
         let font = UIFont(name: fontName, size: 24 * CGFloat(fontSizeMultiplier)) ?? UIFont.systemFont(ofSize: 24 * CGFloat(fontSizeMultiplier))
-        let textColor = UIColor(SettingsManager.shared.textColor)
+        let uiTextColor = UIColor(textColor)
         
-        if coordinator.needsFullReload(text: text, fontName: fontName, fontSizeMultiplier: fontSizeMultiplier, theme: theme) {
+        if coordinator.needsFullReload(text: text, fontName: fontName, fontSizeMultiplier: fontSizeMultiplier, theme: theme, textColor: uiTextColor) {
+            
+            coordinator.lastFontSizeMultiplier = fontSizeMultiplier
+            coordinator.lastTheme = theme
+            coordinator.lastTextColor = uiTextColor
+            
+            // Create paragraph style for spacing
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.lineHeightMultiple = 1.5
+            paragraphStyle.alignment = .left
             
             let fullAttribs: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .foregroundColor: textColor.withAlphaComponent(0.3) // Dimmed by default
+                .foregroundColor: uiTextColor.withAlphaComponent(0.4), // Increased visibility for dimmed text
+                .paragraphStyle: paragraphStyle
             ]
             let attributedString = NSMutableAttributedString(string: text, attributes: fullAttribs)
             
             uiView.attributedText = attributedString
-            coordinator.lastText = text
-            coordinator.lastFontName = fontName
-            coordinator.lastFontSizeMultiplier = fontSizeMultiplier
-            coordinator.lastTheme = theme
             
             // Re-highlight current
-            coordinator.highlight(index: currentIndex, in: uiView, ranges: wordRanges, textColor: textColor)
+            coordinator.highlight(index: currentIndex, in: uiView, ranges: wordRanges, textColor: uiTextColor)
             
         } else if coordinator.lastIndex != currentIndex {
             // Just update highlight
@@ -80,7 +86,7 @@ struct ParagraphTextView: UIViewRepresentable {
                 to: currentIndex,
                 in: uiView,
                 ranges: wordRanges,
-                textColor: textColor
+                textColor: uiTextColor
             )
         }
         
@@ -130,15 +136,16 @@ struct ParagraphTextView: UIViewRepresentable {
         var lastText: String = ""
         var lastFontName: String = ""
         var lastFontSizeMultiplier: Double = 1.0
-        var lastTheme: AppTheme = .dark
+        var lastTheme: AppTheme = .black
+        var lastTextColor: UIColor = .white
         var lastIndex: Int = -1
         
         init(_ parent: ParagraphTextView) {
             self.parent = parent
         }
         
-        func needsFullReload(text: String, fontName: String, fontSizeMultiplier: Double, theme: AppTheme) -> Bool {
-            return text != lastText || fontName != lastFontName || fontSizeMultiplier != lastFontSizeMultiplier || theme != lastTheme
+        func needsFullReload(text: String, fontName: String, fontSizeMultiplier: Double, theme: AppTheme, textColor: UIColor) -> Bool {
+            return text != lastText || fontName != lastFontName || fontSizeMultiplier != lastFontSizeMultiplier || theme != lastTheme || textColor != lastTextColor
         }
         
         @objc func handleTap() {
@@ -154,10 +161,10 @@ struct ParagraphTextView: UIViewRepresentable {
             
             // Apply highlight attributes
             // Apply highlight attributes
+            // Apply highlight attributes
             let highlightAttributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: UIColor(SettingsManager.shared.textColor),
+                .foregroundColor: textColor,
                 .font: UIFont(name: parent.fontName, size: 24 * CGFloat(parent.fontSizeMultiplier))?.bold() ?? UIFont.systemFont(ofSize: 24 * CGFloat(parent.fontSizeMultiplier), weight: .bold)
-                // Use custom bold function or fallback
             ]
             
             storage.addAttributes(highlightAttributes, range: range)

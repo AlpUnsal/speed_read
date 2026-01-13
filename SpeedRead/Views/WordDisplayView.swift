@@ -4,7 +4,7 @@ struct WordDisplayView: View {
     let word: String
     let fontSize: CGFloat
     var fontName: String = "EBGaramond-Regular" // Default
-    var theme: AppTheme = .dark // Default
+    var theme: AppTheme = .black // Default
     
     // Colors
     private var textColor: Color {

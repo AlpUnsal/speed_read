@@ -44,7 +44,7 @@ struct SettingsView: View {
                     
                     VStack(alignment: .leading) {
                         Text("Font Scaling: \(String(format: "%.1fx", settings.fontSizeMultiplier))")
-                        Slider(value: $settings.fontSizeMultiplier, in: 0.8...2.0, step: 0.1)
+                        Slider(value: $settings.fontSizeMultiplier, in: 0.5...1.5, step: 0.1)
                             .accentColor(Color(hex: "E63946"))
                     }
                 }
@@ -58,6 +58,8 @@ struct SettingsView: View {
             .navigationBarItems(trailing: Button("Done") {
                 presentationMode.wrappedValue.dismiss()
             })
+            .scrollContentBackground(.hidden)
+            .background(settings.backgroundColor)
         }
         .preferredColorScheme(settings.theme.colorScheme)
         .accentColor(Color(hex: "E63946"))

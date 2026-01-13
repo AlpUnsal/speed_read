@@ -2,16 +2,16 @@ import SwiftUI
 import Combine
 
 enum AppTheme: String, CaseIterable, Identifiable {
-    case system = "System"
-    case dark = "Dark"
-    case light = "Light"
+    case black = "Black" // Previously typical dark mode
+    case grey = "Grey"   // Existing dark mode logic
+    case light = "Light" // Cream
     
     var id: String { rawValue }
     
     var colorScheme: ColorScheme? {
         switch self {
-        case .system: return nil
-        case .dark: return .dark
+        case .black: return .dark
+        case .grey: return .dark
         case .light: return .light
         }
     }
@@ -27,7 +27,7 @@ enum ReaderMode: String, CaseIterable, Identifiable {
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
     
-    @AppStorage("appTheme") var theme: AppTheme = .dark // Defaulting to dark as per original design
+    @AppStorage("appTheme") var theme: AppTheme = .black // Defaulting to Black
     @AppStorage("readerMode") var readerMode: ReaderMode = .rsvp
     @AppStorage("fontName") var fontName: String = "EBGaramond-Regular"
     @AppStorage("fontSizeMultiplier") var fontSizeMultiplier: Double = 1.0
@@ -48,34 +48,34 @@ class SettingsManager: ObservableObject {
     
     var backgroundColor: Color {
         switch theme {
-        case .dark:
-            return Color(hex: "1A1A1A")
+        case .black:
+            return Color.black // Pure Black
+        case .grey:
+            return Color(hex: "1A1A1A") // Dark Grey
         case .light:
             return Color(hex: "FAF9F6") // Cream
-        case .system:
-            return Color("BackgroundColor") // Fallback to asset catalog or dynamic color
         }
     }
     
     var textColor: Color {
         switch theme {
-        case .dark:
-            return Color(hex: "E5E5E5")
+        case .black:
+            return Color(hex: "E5E5E5") // Light Grey for contrast
+        case .grey:
+            return Color(hex: "E5E5E5") // Light Grey for contrast
         case .light:
-            return Color(hex: "1A1A1A")
-        case .system:
-            return Color("TextColor")
+            return Color(hex: "1A1A1A") // Dark Grey for contrast
         }
     }
     
     var secondaryTextColor: Color {
         switch theme {
-        case .dark:
+        case .black:
+            return Color(hex: "888888")
+        case .grey:
             return Color(hex: "888888")
         case .light:
             return Color(hex: "666666")
-        case .system:
-            return Color.secondary
         }
     }
     
