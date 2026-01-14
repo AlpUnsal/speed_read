@@ -11,7 +11,19 @@ struct RSVPView: View {
     @ObservedObject private var settings = SettingsManager.shared
     
     @State private var showControls = true
-    @State private var showSpeedHint = true
+    @AppStorage("hasShownSpeedHint") private var hasShownSpeedHint = false
+    @State private var showSpeedHint: Bool
+    
+    init(text: String, documentId: UUID?, startIndex: Int, initialWPM: Double, onExit: @escaping () -> Void) {
+        self.text = text
+        self.documentId = documentId
+        self.startIndex = startIndex
+        self.initialWPM = initialWPM
+        self.onExit = onExit
+        // Initialize showSpeedHint based on UserDefaults
+        _showSpeedHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownSpeedHint"))
+    }
+    
     @State private var currentWPMDisplay: Double? = nil
     @State private var hideWPMTimer: Timer? = nil
     
@@ -66,6 +78,7 @@ struct RSVPView: View {
                         
                         // Hide hint if needed
                         if showSpeedHint {
+                            hasShownSpeedHint = true
                             withAnimation(.easeOut(duration: 0.3)) {
                                 showSpeedHint = false
                             }
@@ -189,6 +202,7 @@ struct RSVPView: View {
                                 
                                 // Hide the initial hint after first use
                                 if showSpeedHint {
+                                    hasShownSpeedHint = true
                                     withAnimation(.easeOut(duration: 0.3)) {
                                         showSpeedHint = false
                                     }
