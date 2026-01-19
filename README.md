@@ -23,7 +23,7 @@ This app is designed to be built and installed via Xcode on macOS (too broke to 
 1. **Clone the Repository**
    Clone this repository to your local machine:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/AlpUnsal/speed_read.git
    cd speed_read
    ```
    *(Or download the ZIP file and extract it)*
