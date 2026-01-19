@@ -36,7 +36,6 @@ class RSVPViewModel: ObservableObject {
     
     // MARK: - Initialization
     init() {
-        print("DEBUG_VM: Init \(id)")
     }
     
     // MARK: - Public Methods
@@ -62,21 +61,18 @@ class RSVPViewModel: ObservableObject {
     }
     
     func play() {
-        print("DEBUG_VM: [\(id)] play() called")
         guard !words.isEmpty else { return }
         isPlaying = true
         scheduleNextWord()
     }
     
     func pause() {
-        print("DEBUG_VM: [\(id)] pause() called")
         isPlaying = false
         timer?.invalidate()
         timer = nil
     }
     
     func togglePlayPause() {
-        print("DEBUG_VM: [\(id)] togglePlayPause called. Current isPlaying: \(isPlaying)")
         if isPlaying {
             pause()
         } else {

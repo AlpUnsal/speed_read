@@ -43,8 +43,8 @@ struct SettingsView: View {
                     }
                     
                     VStack(alignment: .leading) {
-                        Text("Font Scaling: \(String(format: "%.1fx", settings.fontSizeMultiplier))")
-                        Slider(value: $settings.fontSizeMultiplier, in: 0.5...1.5, step: 0.1)
+                        Text("Font Scaling: \(String(format: "%.2fx", settings.fontSizeMultiplier))")
+                        Slider(value: $settings.fontSizeMultiplier, in: 0.5...1.25, step: 0.05)
                             .accentColor(Color(hex: "E63946"))
                     }
                 }

@@ -42,7 +42,12 @@ class SettingsManager: ObservableObject {
         "HelveticaNeue-Light"
     ]
     
-    private init() {}
+    private init() {
+        // Clamp font size if it exceeds new max
+        if fontSizeMultiplier > 1.25 {
+            fontSizeMultiplier = 1.25
+        }
+    }
     
     // MARK: - Color Palette
     

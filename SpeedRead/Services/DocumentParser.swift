@@ -1,8 +1,12 @@
 import Foundation
 import PDFKit
 import UniformTypeIdentifiers
+import OSLog
 
 struct DocumentParser {
+    
+    // Create a logger for this subsystem
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "SpeedRead", category: "DocumentParser")
     
     /// Parse document at URL and return extracted text
     static func parse(url: URL) -> String? {
@@ -52,20 +56,10 @@ struct DocumentParser {
     }
     
     // MARK: - DOCX Parser
-    // Note: Full DOCX support requires ZIPFoundation or similar library for iOS
-    // For now, we return nil - recommend using TXT, PDF, or RTF formats
     private static func parseDOCX(url: URL) -> String? {
-        // DOCX parsing requires unzipping which needs a third-party library on iOS
-        // NSAttributedString.DocumentType.officeOpenXML is not available on iOS
-        // For production, add ZIPFoundation via SPM and implement proper extraction
-        print("DOCX parsing not fully supported on iOS without ZIPFoundation. Use PDF, TXT, or RTF instead.")
-        return nil
+        return DOCXParser.parse(url: url)
     }
     
-    private static func extractTextFromDOCXML(data: Data) -> String? {
-        let parser = DOCXMLParser(data: data)
-        return parser.parse()
-    }
     
     // MARK: - RTF Parser
     private static func parseRTF(url: URL) -> String? {
@@ -78,22 +72,19 @@ struct DocumentParser {
             )
             return attributedString.string
         } catch {
-            print("RTF parsing error: \(error)")
+            logger.error("RTF parsing error: \(error.localizedDescription)")
             return nil
         }
     }
     
     // MARK: - EPUB Parser
-    // Note: Full EPUB support requires ZIPFoundation or similar library for iOS
-    // For now, we return nil - recommend using TXT, PDF, or DOCX formats
     private static func parseEPUB(url: URL) -> String? {
-        // EPUB parsing requires unzipping which needs a third-party library on iOS
-        // For production, add ZIPFoundation via SPM and implement proper extraction
-        print("EPUB parsing not fully supported on iOS without ZIPFoundation. Use PDF, TXT, or DOCX instead.")
-        return nil
+        return EPUBParser.parse(url: url)
     }
     
-    private static func extractTextFromHTML(_ html: String) -> String {
+    // MARK: - HTML Extraction Helper
+    // Made internal so EPUBParser can use it
+    static func extractTextFromHTML(_ html: String) -> String {
         // Simple HTML tag stripping
         var text = html
         // Remove script and style tags with content
@@ -110,39 +101,5 @@ struct DocumentParser {
         // Collapse whitespace
         text = text.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
-// MARK: - DOCX XML Parser
-class DOCXMLParser: NSObject, XMLParserDelegate {
-    private let data: Data
-    private var extractedText = ""
-    private var currentText = ""
-    
-    init(data: Data) {
-        self.data = data
-    }
-    
-    func parse() -> String? {
-        let parser = XMLParser(data: data)
-        parser.delegate = self
-        parser.parse()
-        return extractedText.isEmpty ? nil : extractedText
-    }
-    
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
-        currentText += string
-    }
-    
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        // w:t elements contain text in DOCX
-        if elementName == "w:t" || elementName.hasSuffix(":t") {
-            extractedText += currentText
-        }
-        // Add space after paragraphs
-        if elementName == "w:p" || elementName.hasSuffix(":p") {
-            extractedText += " "
-        }
-        currentText = ""
     }
 }
