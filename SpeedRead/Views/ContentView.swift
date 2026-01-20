@@ -157,6 +157,35 @@ struct ContentView: View {
                 showContent = true
             }
         }
+        .onOpenURL { url in
+            handleOpenURL(url)
+        }
+    }
+    
+    private func handleOpenURL(_ url: URL) {
+        // Expected format: speedread://open?id=<UUID>
+        guard url.scheme == "speedread",
+              url.host == "open",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
+              let idString = components.queryItems?.first(where: { $0.name == "id" })?.value,
+              let id = UUID(uuidString: idString)
+        else { return }
+        
+        // Find document in library
+        // Reload library first to ensure we have the latest data from extension
+        libraryManager.objectWillChange.send() // Force update if needed, but didChangeExternalUserDefaults should handle it.
+        // We might need a slight delay if the notification hasn't fired yet?
+        // Let's rely on LibraryManager.shared having it.
+        
+        if let doc = libraryManager.getDocument(id: id) {
+            currentDocument = doc
+            // Use a slight delay to allow UI to settle if app was launching
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isReading = true
+                }
+            }
+        }
     }
 }
 

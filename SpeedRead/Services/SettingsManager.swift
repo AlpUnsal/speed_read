@@ -18,8 +18,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
 }
 
 enum ReaderMode: String, CaseIterable, Identifiable {
-    case rsvp = "Speed Reader"
-    case paragraph = "Paragraph"
+    case rsvp = "Speed"
+    case paragraph = "Scroll"
     
     var id: String { rawValue }
 }

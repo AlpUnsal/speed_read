@@ -47,55 +47,45 @@ struct RSVPView: View {
                 }
             
             // Reader Content
-            if settings.readerMode == .paragraph {
-                ParagraphView(
-                    viewModel: viewModel,
-                    onTap: {
-                        // Do nothing - only play button controls playback in paragraph mode
-                    },
-                    onWordTap: { wordIndex in
-                        // Jump to tapped word and stay paused
-                        viewModel.goToIndex(wordIndex)
-                    },
-                    onScroll: {
-                        // Pause when user scrolls
-                        if viewModel.isPlaying {
-                            viewModel.togglePlayPause()
-                        }
-                    },
-                    onSpeedScrub: { deltaY in
-                        // Swipe up (neg Y) = faster, swipe down (pos Y) = slower
-                        // Sensitivity adjustment
-                        let sensitivity: Double = 0.5
-                        let wpmDelta = -deltaY * sensitivity
-                        
-                        let newWPM = viewModel.wordsPerMinute + wpmDelta
-                        viewModel.wordsPerMinute = min(max(newWPM, viewModel.minWPM), viewModel.maxWPM)
-                        
-                        // Show WPM feedback
-                        currentWPMDisplay = viewModel.wordsPerMinute
-                        hideWPMTimer?.invalidate()
-                        
-                        // Hide hint if needed
-                        if showSpeedHint {
-                            hasShownSpeedHint = true
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                showSpeedHint = false
+                if settings.readerMode == .paragraph {
+                    if #available(iOS 17.0, *) {
+                        ParagraphView(
+                            viewModel: viewModel,
+                            onTap: { },
+                            onWordTap: { wordIndex in
+                                viewModel.goToIndex(wordIndex)
+                            },
+                            onScroll: {
+                                if viewModel.isPlaying {
+                                    viewModel.togglePlayPause()
+                                }
+                            },
+                            onSpeedScrub: { deltaY in
+                                let sensitivity: Double = 0.5
+                                let wpmDelta = -deltaY * sensitivity
+                                let newWPM = viewModel.wordsPerMinute + wpmDelta
+                                viewModel.wordsPerMinute = min(max(newWPM, viewModel.minWPM), viewModel.maxWPM)
+                                currentWPMDisplay = viewModel.wordsPerMinute
+                                hideWPMTimer?.invalidate()
+                                if showSpeedHint {
+                                    hasShownSpeedHint = true
+                                    withAnimation(.easeOut(duration: 0.3)) { showSpeedHint = false }
+                                }
+                            },
+                            onSpeedScrubEnded: {
+                                hideWPMTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+                                    withAnimation { currentWPMDisplay = nil }
+                                }
                             }
-                        }
-                    },
-                    onSpeedScrubEnded: {
-                        // Hide WPM feedback after delay
-                        hideWPMTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
-                            withAnimation {
-                                currentWPMDisplay = nil
-                            }
-                        }
+                        )
+                        .padding(.top, 60)
+                        .padding(.bottom, 140)
+                    } else {
+                        Text("Paragraph View requires iOS 17 or later")
+                            .foregroundColor(settings.textColor)
+                            .padding()
                     }
-                )
-                .padding(.top, 60)
-                .padding(.bottom, 140) // Increased padding to clear bottom buttons
-            } else {
+                } else {
                 // Word Display (centered with ORP anchor)
                 WordDisplayView(
                     word: viewModel.currentWord,

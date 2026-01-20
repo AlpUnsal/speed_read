@@ -3,16 +3,22 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5D58F1962F1FE89600E08ACB /* SpeedReadShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5D58F19E2F1FE92D00E08ACB /* TextTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000019 /* TextTokenizer.swift */; };
+		5D58F19F2F1FE93500E08ACB /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001E /* LibraryManager.swift */; };
+		5D58F1A12F1FE95F00E08ACB /* HTMLHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */; };
+		5D58F1A22F1FE95F00E08ACB /* HTMLHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */; };
 		5DA37ACF2F158C7500135432 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37ACE2F158C7500135432 /* SettingsManager.swift */; };
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		5DA37AD82F18286000135432 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5DA37AD72F18286000135432 /* ZIPFoundation */; };
 		5DA37ADB2F182B4600135432 /* DOCXParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD92F182B4600135432 /* DOCXParser.swift */; };
 		5DA37ADC2F182B4600135432 /* EPUBParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37ADA2F182B4600135432 /* EPUBParser.swift */; };
+		5DA37ADE2F1EAEA900135432 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5DA37ADD2F1EAEA900135432 /* PrivacyInfo.xcprivacy */; };
 		770000001111111100000001 /* SpeedReadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000011 /* SpeedReadApp.swift */; };
 		770000001111111100000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000012 /* ContentView.swift */; };
 		770000001111111100000003 /* RSVPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000013 /* RSVPView.swift */; };
@@ -29,12 +35,40 @@
 		77000000111111110000000E /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001F /* LibraryView.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		5D58F1942F1FE89600E08ACB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 770000001111111100000500 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58F18B2F1FE89600E08ACB;
+			remoteInfo = SpeedReadShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5D58F1972F1FE89600E08ACB /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5D58F1962F1FE89600E08ACB /* SpeedReadShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpeedReadShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D58F19C2F1FE8C900E08ACB /* SpeedRead.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpeedRead.entitlements; sourceTree = "<group>"; };
+		5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLHelper.swift; sourceTree = "<group>"; };
 		5DA37ACE2F158C7500135432 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
 		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParagraphView.swift; sourceTree = "<group>"; };
 		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		5DA37AD92F182B4600135432 /* DOCXParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DOCXParser.swift; sourceTree = "<group>"; };
 		5DA37ADA2F182B4600135432 /* EPUBParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPUBParser.swift; sourceTree = "<group>"; };
+		5DA37ADD2F1EAEA900135432 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		770000001111111100000011 /* SpeedReadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedReadApp.swift; sourceTree = "<group>"; };
 		770000001111111100000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		770000001111111100000013 /* RSVPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSVPView.swift; sourceTree = "<group>"; };
@@ -53,7 +87,28 @@
 		770000001111111100000100 /* SpeedRead.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpeedRead.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5D58F19A2F1FE89600E08ACB /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 5D58F18B2F1FE89600E08ACB /* SpeedReadShare */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5D58F18D2F1FE89600E08ACB /* SpeedReadShare */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5D58F19A2F1FE89600E08ACB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = SpeedReadShare; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		5D58F1892F1FE89600E08ACB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		770000001111111100000200 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -68,7 +123,9 @@
 		770000001111111100000300 = {
 			isa = PBXGroup;
 			children = (
+				5DA37ADD2F1EAEA900135432 /* PrivacyInfo.xcprivacy */,
 				770000001111111100000301 /* SpeedRead */,
+				5D58F18D2F1FE89600E08ACB /* SpeedReadShare */,
 				770000001111111100000302 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -76,6 +133,7 @@
 		770000001111111100000301 /* SpeedRead */ = {
 			isa = PBXGroup;
 			children = (
+				5D58F19C2F1FE8C900E08ACB /* SpeedRead.entitlements */,
 				770000001111111100000011 /* SpeedReadApp.swift */,
 				770000001111111100000303 /* Views */,
 				770000001111111100000304 /* ViewModels */,
@@ -91,6 +149,7 @@
 			isa = PBXGroup;
 			children = (
 				770000001111111100000100 /* SpeedRead.app */,
+				5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -127,6 +186,7 @@
 				5DA37AD92F182B4600135432 /* DOCXParser.swift */,
 				5DA37ADA2F182B4600135432 /* EPUBParser.swift */,
 				5DA37ACE2F158C7500135432 /* SettingsManager.swift */,
+				5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -151,6 +211,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		5D58F18B2F1FE89600E08ACB /* SpeedReadShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "SpeedReadShare" */;
+			buildPhases = (
+				5D58F1882F1FE89600E08ACB /* Sources */,
+				5D58F1892F1FE89600E08ACB /* Frameworks */,
+				5D58F18A2F1FE89600E08ACB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5D58F18D2F1FE89600E08ACB /* SpeedReadShare */,
+			);
+			name = SpeedReadShare;
+			packageProductDependencies = (
+			);
+			productName = SpeedReadShare;
+			productReference = 5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		770000001111111100000400 /* SpeedRead */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 770000001111111100000600 /* Build configuration list for PBXNativeTarget "SpeedRead" */;
@@ -158,10 +240,12 @@
 				770000001111111100000401 /* Sources */,
 				770000001111111100000200 /* Frameworks */,
 				770000001111111100000402 /* Resources */,
+				5D58F1972F1FE89600E08ACB /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5D58F1952F1FE89600E08ACB /* PBXTargetDependency */,
 			);
 			name = SpeedRead;
 			productName = SpeedRead;
@@ -175,9 +259,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
+				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					5D58F18B2F1FE89600E08ACB = {
+						CreatedOnToolsVersion = 16.2;
+					};
 					770000001111111100000400 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -200,15 +287,24 @@
 			projectRoot = "";
 			targets = (
 				770000001111111100000400 /* SpeedRead */,
+				5D58F18B2F1FE89600E08ACB /* SpeedReadShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		5D58F18A2F1FE89600E08ACB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		770000001111111100000402 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5DA37ADE2F1EAEA900135432 /* PrivacyInfo.xcprivacy in Resources */,
 				77000000111111110000000A /* Assets.xcassets in Resources */,
 				77000000111111110000000B /* EBGaramond-Regular.ttf in Resources */,
 			);
@@ -217,6 +313,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5D58F1882F1FE89600E08ACB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D58F1A22F1FE95F00E08ACB /* HTMLHelper.swift in Sources */,
+				5D58F19E2F1FE92D00E08ACB /* TextTokenizer.swift in Sources */,
+				5D58F19F2F1FE93500E08ACB /* LibraryManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		770000001111111100000401 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -231,6 +337,7 @@
 				770000001111111100000005 /* VerticalSlider.swift in Sources */,
 				770000001111111100000006 /* DocumentPicker.swift in Sources */,
 				770000001111111100000007 /* RSVPViewModel.swift in Sources */,
+				5D58F1A12F1FE95F00E08ACB /* HTMLHelper.swift in Sources */,
 				5DA37ADB2F182B4600135432 /* DOCXParser.swift in Sources */,
 				5DA37ADC2F182B4600135432 /* EPUBParser.swift in Sources */,
 				770000001111111100000008 /* DocumentParser.swift in Sources */,
@@ -243,7 +350,69 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		5D58F1952F1FE89600E08ACB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58F18B2F1FE89600E08ACB /* SpeedReadShare */;
+			targetProxy = 5D58F1942F1FE89600E08ACB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		5D58F1982F1FE89600E08ACB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpeedReadShare/SpeedReadShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6UVX9Y7LZY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpeedReadShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpeedReadShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread.SpeedReadShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5D58F1992F1FE89600E08ACB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = SpeedReadShare/SpeedReadShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6UVX9Y7LZY;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpeedReadShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpeedReadShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread.SpeedReadShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		770000001111111100000601 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -368,6 +537,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SpeedRead/SpeedRead.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6UVX9Y7LZY;
@@ -397,6 +567,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = SpeedRead/SpeedRead.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6UVX9Y7LZY;
@@ -424,6 +595,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "SpeedReadShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D58F1982F1FE89600E08ACB /* Debug */,
+				5D58F1992F1FE89600E08ACB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		770000001111111100000501 /* Build configuration list for PBXProject "SpeedRead" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

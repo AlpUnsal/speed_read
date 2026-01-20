@@ -37,8 +37,16 @@ class LibraryManager: ObservableObject {
     @Published var documents: [ReadingDocument] = []
     
     private let storageKey = "SpeedReadLibrary"
+    private let appGroupIdentifier = "group.com.alpunsal.speedread"
     
     private init() {
+        loadDocuments()
+        
+        // Observe changes from other processes (Share Extension)
+        NotificationCenter.default.addObserver(self, selector: #selector(didChangeExternalUserDefaults), name: UserDefaults.didChangeNotification, object: nil)
+    }
+    
+    @objc private func didChangeExternalUserDefaults() {
         loadDocuments()
     }
     
@@ -101,14 +109,20 @@ class LibraryManager: ObservableObject {
     
     // MARK: - Persistence
     
+    // MARK: - Persistence
+    
+    private var userDefaults: UserDefaults {
+        UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+    }
+    
     private func saveDocuments() {
         if let encoded = try? JSONEncoder().encode(documents) {
-            UserDefaults.standard.set(encoded, forKey: storageKey)
+            userDefaults.set(encoded, forKey: storageKey)
         }
     }
     
     private func loadDocuments() {
-        if let data = UserDefaults.standard.data(forKey: storageKey),
+        if let data = userDefaults.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
             documents = decoded
         }

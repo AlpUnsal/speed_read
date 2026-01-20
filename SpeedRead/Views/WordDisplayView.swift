@@ -5,6 +5,8 @@ struct WordDisplayView: View {
     let fontSize: CGFloat
     var fontName: String = "EBGaramond-Regular" // Default
     var theme: AppTheme = .black // Default
+    var animate: Bool = true
+    var useAbsolutePositioning: Bool = true
     
     // Colors
     private var textColor: Color {
@@ -19,58 +21,78 @@ struct WordDisplayView: View {
     @State private var isVisible = false
     
     var body: some View {
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                ForEach(Array(word.enumerated()), id: \.offset) { index, character in
-                    Text(String(character))
-                        .font(.custom(fontName, size: fontSize))
-                        .foregroundColor(index == 1 ? highlightColor : textColor)
-                }
+        if useAbsolutePositioning {
+            GeometryReader { geometry in
+                wordContent
+                    .position(x: calculateXPosition(in: geometry), y: geometry.size.height / 2)
             }
-            .position(x: calculateXPosition(in: geometry), y: geometry.size.height / 2)
-            .opacity(isVisible ? 1 : 0)
-            .scaleEffect(isVisible ? 1 : 0.9)
+        } else {
+            wordContent
         }
+    }
+    
+    private var wordContent: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(word.enumerated()), id: \.offset) { index, character in
+                Text(String(character))
+                    .font(.custom(fontName, size: fontSize))
+                    .foregroundColor(index == 1 ? highlightColor : textColor)
+            }
+        }
+        .opacity((animate && !isVisible) ? 0 : 1)
+        .scaleEffect((animate && !isVisible) ? 0.9 : 1)
         .onChange(of: word) { _ in
-            // Reset and trigger animation
-            isVisible = false
-            withAnimation(.easeOut(duration: 0.08)) {
-                isVisible = true
+            if animate {
+                // Reset and trigger animation
+                isVisible = false
+                withAnimation(.easeOut(duration: 0.08)) {
+                    isVisible = true
+                }
             }
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.1)) {
+            if animate {
+                withAnimation(.easeOut(duration: 0.1)) {
+                    isVisible = true
+                }
+            } else {
                 isVisible = true
             }
         }
     }
     
     /// Calculate X position so that the second letter (ORP) is slightly left of center
-    /// This makes average-length words appear more visually centered
     private func calculateXPosition(in geometry: GeometryProxy) -> CGFloat {
         // Anchor point is offset left of center for better visual balance
         let anchorX = geometry.size.width * 0.38
         
         guard word.count > 1 else {
-            // Single letter word - just center it
             return anchorX
         }
         
-        // Calculate width of first character to offset the word
-        let firstChar = String(word.prefix(1))
-        let firstCharWidth = firstChar.size(withFont: UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)).width
-        
-        // Calculate width of second character (the ORP)
-        let secondChar = String(word.dropFirst().prefix(1))
-        let secondCharWidth = secondChar.size(withFont: UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)).width
-        
-        // Calculate total word width
+        let offset = calculateORPOffset()
         let wordWidth = word.size(withFont: UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)).width
         
-        // Position so the center of the second character is at anchor point
-        let offsetX = firstCharWidth + (secondCharWidth / 2)
+        return anchorX - offset + (wordWidth / 2)
+    }
+    
+    /// Calculates distance from start of word to center of ORP (2nd char)
+    func calculateORPOffset() -> CGFloat {
+        let font = UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)
         
-        return anchorX - offsetX + (wordWidth / 2)
+        if word.count <= 1 {
+            return word.size(withFont: font).width / 2
+        }
+        
+        // Width of first char
+        let firstChar = String(word.prefix(1))
+        let firstCharWidth = firstChar.size(withFont: font).width
+        
+        // Width of second char
+        let secondChar = String(word.dropFirst().prefix(1))
+        let secondCharWidth = secondChar.size(withFont: font).width
+        
+        return firstCharWidth + (secondCharWidth / 2)
     }
     
     /// Dynamic font size based on word length
