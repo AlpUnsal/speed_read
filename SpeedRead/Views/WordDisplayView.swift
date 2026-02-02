@@ -36,7 +36,7 @@ struct WordDisplayView: View {
             ForEach(Array(word.enumerated()), id: \.offset) { index, character in
                 Text(String(character))
                     .font(.custom(fontName, size: fontSize))
-                    .foregroundColor(index == 1 ? highlightColor : textColor)
+                    .foregroundColor((index == 1 || (word.count == 1 && index == 0)) ? highlightColor : textColor)
             }
         }
         .opacity((animate && !isVisible) ? 0 : 1)
@@ -107,13 +107,8 @@ struct WordDisplayView: View {
     }
 }
 
-// MARK: - String Extension for measuring text width
-extension String {
-    func size(withFont font: UIFont) -> CGSize {
-        let attributes = [NSAttributedString.Key.font: font]
-        return (self as NSString).size(withAttributes: attributes)
-    }
-}
+// Note: String.size(withFont:) extension is now in FontMetricsCache.swift
+
 
 #Preview {
     ZStack {

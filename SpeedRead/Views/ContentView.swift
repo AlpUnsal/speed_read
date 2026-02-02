@@ -10,8 +10,12 @@ struct ContentView: View {
     @State private var isReading = false
     @State private var showContent = false
     
+    // Most recent document for Resume feature
+    private var mostRecentDocument: ReadingDocument? {
+        libraryManager.documents.first
+    }
+    
     var body: some View {
-
         ZStack {
             settings.backgroundColor
                 .ignoresSafeArea()
@@ -31,93 +35,7 @@ struct ContentView: View {
                 )
                 .transition(.opacity.combined(with: .scale(scale: 1.02)))
             } else {
-                VStack(spacing: 32) {
-                    Spacer()
-                    
-                    Text("SpeedRead")
-                        .font(.custom("EBGaramond-Regular", size: 48))
-                        .foregroundColor(settings.textColor)
-                        .opacity(showContent ? 1 : 0)
-                        .offset(y: showContent ? 0 : 20)
-                    
-                    VStack(spacing: 16) {
-                        // Import Document button
-                        Button(action: { showDocumentPicker = true }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "doc.badge.plus")
-                                    .font(.system(size: 18))
-                                Text("Import Document")
-                                    .font(.custom("EBGaramond-Regular", size: 18))
-                            }
-                            .foregroundColor(Color(hex: "1A1A1A"))
-                            .frame(width: 200)
-                            .padding(.vertical, 14)
-                            .background(Color(hex: "E5E5E5"))
-                            .cornerRadius(10)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        
-                        // Library button (if has documents)
-                        if !libraryManager.documents.isEmpty {
-                            Button(action: { showLibrary = true }) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "books.vertical")
-                                        .font(.system(size: 18))
-                                    Text("Library (\(libraryManager.documents.count))")
-                                        .font(.custom("EBGaramond-Regular", size: 18))
-                                }
-                                .foregroundColor(Color(hex: "888888"))
-                                .frame(width: 200)
-                                .padding(.vertical, 14)
-                                .background(Color(hex: "2A2A2A"))
-                                .cornerRadius(10)
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        
-                        // Try Sample button
-                        Button(action: {
-                            let doc = libraryManager.addDocument(name: "Sample Text", content: SampleText.content)
-                            currentDocument = doc
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isReading = true
-                            }
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "text.alignleft")
-                                    .font(.system(size: 16))
-                                Text("Try Sample")
-                                    .font(.custom("EBGaramond-Regular", size: 16))
-                            }
-                            .foregroundColor(Color(hex: "666666"))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
-                    .opacity(showContent ? 1 : 0)
-                    .offset(y: showContent ? 0 : 20)
-                    
-                    Spacer()
-                }
-                
-                // Overlay Settings Button
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: { showSettings = true }) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 20))
-                                .foregroundColor(settings.secondaryTextColor)
-                                .padding()
-                                .background(Color.black.opacity(0.01)) // Increase touch target
-                        }
-                        .padding(.top, 40)
-                        .padding(.trailing, 20)
-                    }
-                    Spacer()
-                }
-                .opacity(showContent ? 1 : 0)
+                homeScreen
             }
         }
         .preferredColorScheme(settings.theme.colorScheme)
@@ -126,19 +44,16 @@ struct ContentView: View {
             SettingsView()
         }
         .sheet(isPresented: $showDocumentPicker) {
-            DocumentPicker { url in
-                if let text = DocumentParser.parse(url: url) {
-                    let fileName = url.deletingPathExtension().lastPathComponent
-                    let doc = libraryManager.addDocument(name: fileName, content: text)
-                    currentDocument = doc
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isReading = true
-                    }
+            DocumentPicker { pickedDoc in
+                let fileName = pickedDoc.url.deletingPathExtension().lastPathComponent
+                let doc = libraryManager.addDocument(name: fileName, content: pickedDoc.content, sourceBookmark: pickedDoc.bookmark)
+                currentDocument = doc
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isReading = true
                 }
             }
         }
         .sheet(isPresented: $showLibrary, onDismiss: {
-            // When library closes, start reading if a document was selected
             if currentDocument != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -162,24 +77,226 @@ struct ContentView: View {
         }
     }
     
+    // MARK: - Home Screen
+    
+    private var homeScreen: some View {
+        VStack(spacing: 0) {
+            // Settings button in top-right
+            HStack {
+                Spacer()
+                Button(action: { showSettings = true }) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundColor(settings.mutedTextColor)
+                        .padding(12)
+                        .background(Color.clear)
+                }
+                .padding(.top, 8)
+                .padding(.trailing, 12)
+            }
+            .opacity(showContent ? 1 : 0)
+            
+            Spacer()
+            
+            // Main content
+            VStack(spacing: 28) {
+                // App Title
+                Text("Axilo")
+                    .font(.custom("EBGaramond-Regular", size: 52))
+                    .foregroundColor(settings.textColor)
+                
+                // Resume button (if document available)
+                if let doc = mostRecentDocument {
+                    resumeButton(for: doc)
+                }
+                
+                // Action buttons row
+                HStack(spacing: 12) {
+                    // Import Document
+                    actionButton(
+                        icon: "square.and.arrow.down",
+                        title: "Import Document",
+                        action: { showDocumentPicker = true }
+                    )
+                    
+                    // Open Library (if documents exist)
+                    if !libraryManager.documents.isEmpty {
+                        actionButton(
+                            icon: "books.vertical",
+                            title: "Open Library (\(libraryManager.documents.count))",
+                            action: { showLibrary = true }
+                        )
+                    }
+                }
+                .padding(.horizontal, 24)
+                
+                // Try Sample
+                Button(action: {
+                    let doc = libraryManager.addDocument(name: "Sample Text", content: SampleText.content)
+                    currentDocument = doc
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isReading = true
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "text.alignleft")
+                            .font(.system(size: 14, weight: .light))
+                        Text("Try Sample")
+                            .font(.custom("EBGaramond-Regular", size: 15))
+                    }
+                    .foregroundColor(settings.mutedTextColor)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.top, 4)
+            }
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 20)
+            
+            Spacer()
+            
+            // Recent Library Section
+            if libraryManager.documents.count > 0 {
+                recentLibrarySection
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 20)
+            }
+        }
+    }
+    
+    // MARK: - Resume Button
+    
+    private func resumeButton(for doc: ReadingDocument) -> some View {
+        Button(action: {
+            currentDocument = doc
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isReading = true
+            }
+        }) {
+            HStack(spacing: 14) {
+                // Book icon with subtle background
+                ZStack {
+                    Circle()
+                        .fill(settings.accentColor.opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "book.fill")
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(settings.accentColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Continue Reading")
+                        .font(.custom("EBGaramond-Regular", size: 12))
+                        .foregroundColor(settings.secondaryTextColor)
+                    
+                    Text(doc.name)
+                        .font(.custom("EBGaramond-Regular", size: 16))
+                        .foregroundColor(settings.textColor)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Progress indicator
+                Text("\(Int(doc.progress * 100))%")
+                    .font(.custom("EBGaramond-Regular", size: 14))
+                    .foregroundColor(settings.secondaryTextColor)
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(settings.mutedTextColor)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(settings.cardBackgroundColor)
+                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(settings.cardBorderColor.opacity(0.4), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.horizontal, 24)
+    }
+    
+    // MARK: - Action Button
+    
+    private func actionButton(icon: String, title: String, isPrimary: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .regular))
+                Text(title)
+                    .font(.custom("EBGaramond-Regular", size: 15))
+            }
+            .foregroundColor(isPrimary ? settings.primaryButtonTextColor : settings.textColor)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isPrimary ? settings.primaryButtonBackgroundColor : settings.cardBackgroundColor)
+                    .shadow(color: Color.black.opacity(isPrimary ? 0.15 : 0.06), radius: isPrimary ? 6 : 4, x: 0, y: 2)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(settings.cardBorderColor.opacity(isPrimary ? 0 : 0.3), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+    
+    // MARK: - Recent Library Section
+    
+    private var recentLibrarySection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Recent")
+                .font(.custom("EBGaramond-Regular", size: 18))
+                .foregroundColor(settings.secondaryTextColor)
+                .padding(.horizontal, 24)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(libraryManager.documents.prefix(10)) { document in
+                        DocumentCard(
+                            document: document,
+                            onTap: {
+                                currentDocument = document
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isReading = true
+                                }
+                            },
+                            onDelete: {
+                                withAnimation {
+                                    libraryManager.deleteDocument(document)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+            }
+        }
+        .padding(.bottom, 32)
+    }
+    
+    // MARK: - URL Handling
+    
     private func handleOpenURL(_ url: URL) {
-        // Expected format: speedread://open?id=<UUID>
-        guard url.scheme == "speedread",
+        guard url.scheme == "axilo",
               url.host == "open",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let idString = components.queryItems?.first(where: { $0.name == "id" })?.value,
               let id = UUID(uuidString: idString)
         else { return }
         
-        // Find document in library
-        // Reload library first to ensure we have the latest data from extension
-        libraryManager.objectWillChange.send() // Force update if needed, but didChangeExternalUserDefaults should handle it.
-        // We might need a slight delay if the notification hasn't fired yet?
-        // Let's rely on LibraryManager.shared having it.
+        libraryManager.objectWillChange.send()
         
         if let doc = libraryManager.getDocument(id: id) {
             currentDocument = doc
-            // Use a slight delay to allow UI to settle if app was launching
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     isReading = true

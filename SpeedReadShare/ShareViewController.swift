@@ -70,7 +70,7 @@ class ShareViewController: SLComposeServiceViewController {
                      let newDoc = LibraryManager.shared.addDocument(name: title, content: text)
                      
                      // Open the main app to read the document
-                     let urlString = "speedread://open?id=\(newDoc.id.uuidString)"
+                     let urlString = "axilo://open?id=\(newDoc.id.uuidString)"
                      if let url = URL(string: urlString) {
                          self.openURL(url)
                      }

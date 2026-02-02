@@ -7,11 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5D58F1962F1FE89600E08ACB /* SpeedReadShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5D58F1962F1FE89600E08ACB /* AxiloShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5D58F18C2F1FE89600E08ACB /* AxiloShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5D58F19E2F1FE92D00E08ACB /* TextTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000019 /* TextTokenizer.swift */; };
 		5D58F19F2F1FE93500E08ACB /* LibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001E /* LibraryManager.swift */; };
 		5D58F1A12F1FE95F00E08ACB /* HTMLHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */; };
 		5D58F1A22F1FE95F00E08ACB /* HTMLHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */; };
+		5D58F1AC2F3031FE00E08ACB /* FontMetricsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1AB2F3031FE00E08ACB /* FontMetricsCache.swift */; };
+		5D58F1AD2F3031FE00E08ACB /* FontMetricsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1AB2F3031FE00E08ACB /* FontMetricsCache.swift */; };
+		5D58F1B22F3039A100E08ACB /* DocumentThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1B12F3039A100E08ACB /* DocumentThumbnail.swift */; };
+		5D58F1B52F303BEB00E08ACB /* ThumbnailManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F1B42F303BEB00E08ACB /* ThumbnailManager.swift */; };
 		5DA37ACF2F158C7500135432 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37ACE2F158C7500135432 /* SettingsManager.swift */; };
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
@@ -52,7 +56,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				5D58F1962F1FE89600E08ACB /* SpeedReadShare.appex in Embed Foundation Extensions */,
+				5D58F1962F1FE89600E08ACB /* AxiloShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -60,9 +64,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpeedReadShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D58F18C2F1FE89600E08ACB /* AxiloShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = AxiloShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D58F19C2F1FE8C900E08ACB /* SpeedRead.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SpeedRead.entitlements; sourceTree = "<group>"; };
 		5D58F1A02F1FE95F00E08ACB /* HTMLHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLHelper.swift; sourceTree = "<group>"; };
+		5D58F1AB2F3031FE00E08ACB /* FontMetricsCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontMetricsCache.swift; sourceTree = "<group>"; };
+		5D58F1B12F3039A100E08ACB /* DocumentThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DocumentThumbnail.swift; path = SpeedRead/Views/DocumentThumbnail.swift; sourceTree = "<group>"; };
+		5D58F1B42F303BEB00E08ACB /* ThumbnailManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailManager.swift; sourceTree = "<group>"; };
 		5DA37ACE2F158C7500135432 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
 		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParagraphView.swift; sourceTree = "<group>"; };
 		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -84,7 +91,7 @@
 		77000000111111110000001D /* SampleText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleText.swift; sourceTree = "<group>"; };
 		77000000111111110000001E /* LibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryManager.swift; sourceTree = "<group>"; };
 		77000000111111110000001F /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
-		770000001111111100000100 /* SpeedRead.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SpeedRead.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		770000001111111100000100 /* Axilo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Axilo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -93,7 +100,7 @@
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 5D58F18B2F1FE89600E08ACB /* SpeedReadShare */;
+			target = 5D58F18B2F1FE89600E08ACB /* AxiloShare */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -123,6 +130,9 @@
 		770000001111111100000300 = {
 			isa = PBXGroup;
 			children = (
+				5D58F1B42F303BEB00E08ACB /* ThumbnailManager.swift */,
+				5D58F1B12F3039A100E08ACB /* DocumentThumbnail.swift */,
+				5D58F1AB2F3031FE00E08ACB /* FontMetricsCache.swift */,
 				5DA37ADD2F1EAEA900135432 /* PrivacyInfo.xcprivacy */,
 				770000001111111100000301 /* SpeedRead */,
 				5D58F18D2F1FE89600E08ACB /* SpeedReadShare */,
@@ -148,8 +158,8 @@
 		770000001111111100000302 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				770000001111111100000100 /* SpeedRead.app */,
-				5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */,
+				770000001111111100000100 /* Axilo.app */,
+				5D58F18C2F1FE89600E08ACB /* AxiloShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -211,9 +221,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5D58F18B2F1FE89600E08ACB /* SpeedReadShare */ = {
+		5D58F18B2F1FE89600E08ACB /* AxiloShare */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "SpeedReadShare" */;
+			buildConfigurationList = 5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "AxiloShare" */;
 			buildPhases = (
 				5D58F1882F1FE89600E08ACB /* Sources */,
 				5D58F1892F1FE89600E08ACB /* Frameworks */,
@@ -226,16 +236,16 @@
 			fileSystemSynchronizedGroups = (
 				5D58F18D2F1FE89600E08ACB /* SpeedReadShare */,
 			);
-			name = SpeedReadShare;
+			name = AxiloShare;
 			packageProductDependencies = (
 			);
 			productName = SpeedReadShare;
-			productReference = 5D58F18C2F1FE89600E08ACB /* SpeedReadShare.appex */;
+			productReference = 5D58F18C2F1FE89600E08ACB /* AxiloShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		770000001111111100000400 /* SpeedRead */ = {
+		770000001111111100000400 /* Axilo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 770000001111111100000600 /* Build configuration list for PBXNativeTarget "SpeedRead" */;
+			buildConfigurationList = 770000001111111100000600 /* Build configuration list for PBXNativeTarget "Axilo" */;
 			buildPhases = (
 				770000001111111100000401 /* Sources */,
 				770000001111111100000200 /* Frameworks */,
@@ -247,9 +257,9 @@
 			dependencies = (
 				5D58F1952F1FE89600E08ACB /* PBXTargetDependency */,
 			);
-			name = SpeedRead;
+			name = Axilo;
 			productName = SpeedRead;
-			productReference = 770000001111111100000100 /* SpeedRead.app */;
+			productReference = 770000001111111100000100 /* Axilo.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -270,7 +280,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 770000001111111100000501 /* Build configuration list for PBXProject "SpeedRead" */;
+			buildConfigurationList = 770000001111111100000501 /* Build configuration list for PBXProject "Axilo" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -286,8 +296,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				770000001111111100000400 /* SpeedRead */,
-				5D58F18B2F1FE89600E08ACB /* SpeedReadShare */,
+				770000001111111100000400 /* Axilo */,
+				5D58F18B2F1FE89600E08ACB /* AxiloShare */,
 			);
 		};
 /* End PBXProject section */
@@ -319,6 +329,7 @@
 			files = (
 				5D58F1A22F1FE95F00E08ACB /* HTMLHelper.swift in Sources */,
 				5D58F19E2F1FE92D00E08ACB /* TextTokenizer.swift in Sources */,
+				5D58F1AD2F3031FE00E08ACB /* FontMetricsCache.swift in Sources */,
 				5D58F19F2F1FE93500E08ACB /* LibraryManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -328,6 +339,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				770000001111111100000001 /* SpeedReadApp.swift in Sources */,
+				5D58F1AC2F3031FE00E08ACB /* FontMetricsCache.swift in Sources */,
 				5DA37ACF2F158C7500135432 /* SettingsManager.swift in Sources */,
 				5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */,
 				5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */,
@@ -335,6 +347,8 @@
 				770000001111111100000003 /* RSVPView.swift in Sources */,
 				770000001111111100000004 /* WordDisplayView.swift in Sources */,
 				770000001111111100000005 /* VerticalSlider.swift in Sources */,
+				5D58F1B22F3039A100E08ACB /* DocumentThumbnail.swift in Sources */,
+				5D58F1B52F303BEB00E08ACB /* ThumbnailManager.swift in Sources */,
 				770000001111111100000006 /* DocumentPicker.swift in Sources */,
 				770000001111111100000007 /* RSVPViewModel.swift in Sources */,
 				5D58F1A12F1FE95F00E08ACB /* HTMLHelper.swift in Sources */,
@@ -353,7 +367,7 @@
 /* Begin PBXTargetDependency section */
 		5D58F1952F1FE89600E08ACB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 5D58F18B2F1FE89600E08ACB /* SpeedReadShare */;
+			target = 5D58F18B2F1FE89600E08ACB /* AxiloShare */;
 			targetProxy = 5D58F1942F1FE89600E08ACB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -377,7 +391,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread.SpeedReadShare;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.axilo.AxiloShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -404,7 +418,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread.SpeedReadShare;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.axilo.AxiloShare;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -554,7 +568,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.axilo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -584,7 +598,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.speedread;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alpunsal.axilo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -595,7 +609,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "SpeedReadShare" */ = {
+		5D58F19B2F1FE89600E08ACB /* Build configuration list for PBXNativeTarget "AxiloShare" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				5D58F1982F1FE89600E08ACB /* Debug */,
@@ -604,7 +618,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		770000001111111100000501 /* Build configuration list for PBXProject "SpeedRead" */ = {
+		770000001111111100000501 /* Build configuration list for PBXProject "Axilo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				770000001111111100000601 /* Debug */,
@@ -613,7 +627,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		770000001111111100000600 /* Build configuration list for PBXNativeTarget "SpeedRead" */ = {
+		770000001111111100000600 /* Build configuration list for PBXNativeTarget "Axilo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				770000001111111100000603 /* Debug */,

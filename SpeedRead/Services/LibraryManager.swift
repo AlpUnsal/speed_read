@@ -9,6 +9,7 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
     var totalWords: Int
     var lastReadDate: Date
     var wordsPerMinute: Double
+    var sourceBookmark: Data?  // Security-scoped bookmark for thumbnail generation
     
     var progress: Double {
         guard totalWords > 0 else { return 0 }
@@ -19,7 +20,7 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
         currentWordIndex >= totalWords - 1
     }
     
-    init(name: String, content: String) {
+    init(name: String, content: String, sourceBookmark: Data? = nil) {
         self.id = UUID()
         self.name = name
         self.content = content
@@ -27,6 +28,7 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
         self.totalWords = TextTokenizer.tokenize(content).count
         self.lastReadDate = Date()
         self.wordsPerMinute = 300
+        self.sourceBookmark = sourceBookmark
     }
 }
 
@@ -37,7 +39,7 @@ class LibraryManager: ObservableObject {
     @Published var documents: [ReadingDocument] = []
     
     private let storageKey = "SpeedReadLibrary"
-    private let appGroupIdentifier = "group.com.alpunsal.speedread"
+    private let appGroupIdentifier = "group.com.alpunsal.axilo"
     
     private init() {
         loadDocuments()
@@ -53,24 +55,32 @@ class LibraryManager: ObservableObject {
     // MARK: - Public Methods
     
     /// Add a new document to the library or update existing one with same name
-    func addDocument(name: String, content: String) -> ReadingDocument {
+    /// - Parameters:
+    ///   - name: Document name
+    ///   - content: Parsed text content
+    ///   - sourceBookmark: Pre-created bookmark data for thumbnail generation
+    func addDocument(name: String, content: String, sourceBookmark: Data? = nil) -> ReadingDocument {
         // Check if document with same name exists
         if let existingIndex = documents.firstIndex(where: { $0.name == name }) {
             // Update content but keep progress if content is the same
             if documents[existingIndex].content == content {
                 documents[existingIndex].lastReadDate = Date()
+                // Update bookmark if we have a new one
+                if let bookmark = sourceBookmark {
+                    documents[existingIndex].sourceBookmark = bookmark
+                }
                 saveDocuments()
                 return documents[existingIndex]
             } else {
                 // Content changed, reset progress
-                let newDoc = ReadingDocument(name: name, content: content)
+                let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark)
                 documents[existingIndex] = newDoc
                 saveDocuments()
                 return newDoc
             }
         } else {
             // Add new document
-            let newDoc = ReadingDocument(name: name, content: content)
+            let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark)
             documents.insert(newDoc, at: 0)
             saveDocuments()
             return newDoc
@@ -106,8 +116,6 @@ class LibraryManager: ObservableObject {
     func getDocument(id: UUID) -> ReadingDocument? {
         return documents.first { $0.id == id }
     }
-    
-    // MARK: - Persistence
     
     // MARK: - Persistence
     

@@ -2,12 +2,13 @@ import SwiftUI
 
 struct LibraryView: View {
     @ObservedObject var libraryManager = LibraryManager.shared
+    @ObservedObject var settings = SettingsManager.shared
     @Binding var selectedDocument: ReadingDocument?
     @Binding var isPresented: Bool
     
     var body: some View {
         ZStack {
-            Color(hex: "1A1A1A")
+            settings.backgroundColor
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -15,14 +16,15 @@ struct LibraryView: View {
                 HStack {
                     Text("Library")
                         .font(.custom("EBGaramond-Regular", size: 28))
-                        .foregroundColor(Color(hex: "E5E5E5"))
+                        .foregroundColor(settings.textColor)
                     
                     Spacer()
                     
                     Button(action: { isPresented = false }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 18, weight: .light))
-                            .foregroundColor(Color(hex: "666666"))
+                            .font(.system(size: 16, weight: .light))
+                            .foregroundColor(settings.mutedTextColor)
+                            .padding(8)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -31,52 +33,66 @@ struct LibraryView: View {
                 
                 if libraryManager.documents.isEmpty {
                     Spacer()
-                    VStack(spacing: 16) {
-                        Image(systemName: "books.vertical")
-                            .font(.system(size: 48, weight: .light))
-                            .foregroundColor(Color(hex: "444444"))
-                        Text("No documents yet")
-                            .font(.custom("EBGaramond-Regular", size: 18))
-                            .foregroundColor(Color(hex: "666666"))
-                        Text("Import a document to get started")
-                            .font(.custom("EBGaramond-Regular", size: 14))
-                            .foregroundColor(Color(hex: "555555"))
-                    }
+                    emptyState
                     Spacer()
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(libraryManager.documents) { document in
-                                DocumentRow(
-                                    document: document,
-                                    onContinue: {
-                                        selectedDocument = document
-                                        isPresented = false
-                                    },
-                                    onRestart: {
-                                        libraryManager.resetProgress(for: document.id)
-                                        if var doc = libraryManager.getDocument(id: document.id) {
-                                            doc.currentWordIndex = 0
-                                            selectedDocument = doc
-                                        }
-                                        isPresented = false
-                                    },
-                                    onDelete: {
-                                        withAnimation {
-                                            libraryManager.deleteDocument(document)
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 20)
-                    }
+                    documentList
                 }
             }
         }
     }
+    
+    // MARK: - Empty State
+    
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "books.vertical")
+                .font(.system(size: 48, weight: .ultraLight))
+                .foregroundColor(settings.mutedTextColor)
+            Text("No documents yet")
+                .font(.custom("EBGaramond-Regular", size: 18))
+                .foregroundColor(settings.secondaryTextColor)
+            Text("Import a document to get started")
+                .font(.custom("EBGaramond-Regular", size: 14))
+                .foregroundColor(settings.mutedTextColor)
+        }
+    }
+    
+    // MARK: - Document List
+    
+    private var documentList: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                ForEach(libraryManager.documents) { document in
+                    DocumentRow(
+                        document: document,
+                        onContinue: {
+                            selectedDocument = document
+                            isPresented = false
+                        },
+                        onRestart: {
+                            libraryManager.resetProgress(for: document.id)
+                            if var doc = libraryManager.getDocument(id: document.id) {
+                                doc.currentWordIndex = 0
+                                selectedDocument = doc
+                            }
+                            isPresented = false
+                        },
+                        onDelete: {
+                            withAnimation {
+                                libraryManager.deleteDocument(document)
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+    }
 }
+
+// MARK: - Document Row
 
 struct DocumentRow: View {
     let document: ReadingDocument
@@ -84,72 +100,78 @@ struct DocumentRow: View {
     let onRestart: () -> Void
     let onDelete: () -> Void
     
-    @State private var showActions = false
+    @ObservedObject var settings = SettingsManager.shared
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
+        Button(action: onContinue) {
+            HStack(spacing: 14) {
+                // Thumbnail
+                DocumentThumbnail(document: document)
+                    .frame(width: 50, height: 70)
+                
+                // Info
                 VStack(alignment: .leading, spacing: 6) {
                     Text(document.name)
-                        .font(.custom("EBGaramond-Regular", size: 18))
-                        .foregroundColor(Color(hex: "E5E5E5"))
+                        .font(.custom("EBGaramond-Regular", size: 17))
+                        .foregroundColor(settings.textColor)
                         .lineLimit(1)
                     
-                    HStack(spacing: 12) {
+                    HStack(spacing: 10) {
                         // Progress
                         Text("\(Int(document.progress * 100))%")
-                            .font(.custom("EBGaramond-Regular", size: 14))
-                            .foregroundColor(document.isComplete ? Color(hex: "4CAF50") : Color(hex: "888888"))
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(document.isComplete ? settings.completedColor : settings.secondaryTextColor)
                         
                         // Word count
                         Text("\(document.totalWords) words")
-                            .font(.custom("EBGaramond-Regular", size: 14))
-                            .foregroundColor(Color(hex: "666666"))
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(settings.mutedTextColor)
+                        
+                        Spacer()
                         
                         // Last read
                         Text(timeAgo(from: document.lastReadDate))
-                            .font(.custom("EBGaramond-Regular", size: 14))
-                            .foregroundColor(Color(hex: "555555"))
+                            .font(.custom("EBGaramond-Regular", size: 12))
+                            .foregroundColor(settings.mutedTextColor)
                     }
-                }
-                
-                Spacer()
-                
-                // Continue/Start button
-                Button(action: onContinue) {
-                    Text(document.currentWordIndex > 0 ? "Continue" : "Start")
-                        .font(.custom("EBGaramond-Regular", size: 14))
-                        .foregroundColor(Color(hex: "1A1A1A"))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color(hex: "E5E5E5"))
-                        .cornerRadius(6)
-                }
-            }
-            
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color(hex: "2A2A2A"))
-                        .frame(height: 3)
-                        .cornerRadius(1.5)
                     
-                    Rectangle()
-                        .fill(document.isComplete ? Color(hex: "4CAF50") : Color(hex: "E63946"))
-                        .frame(width: geo.size.width * document.progress, height: 3)
-                        .cornerRadius(1.5)
+                    // Progress bar
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(settings.progressBarBackgroundColor)
+                                .frame(height: 3)
+                            
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(document.isComplete ? settings.completedColor : settings.accentColor)
+                                .frame(width: geo.size.width * document.progress, height: 3)
+                        }
+                    }
+                    .frame(height: 3)
                 }
+                
+                // Continue indicator
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(settings.mutedTextColor)
             }
-            .frame(height: 3)
+            .padding(14)
+            .background(settings.cardBackgroundColor)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(settings.cardBorderColor.opacity(0.3), lineWidth: 0.5)
+            )
         }
-        .padding(16)
-        .background(Color(hex: "232323"))
-        .cornerRadius(12)
+        .buttonStyle(PlainButtonStyle())
         .contextMenu {
+            Button(action: onContinue) {
+                Label(document.currentWordIndex > 0 ? "Continue" : "Start", systemImage: "play")
+            }
             Button(action: onRestart) {
                 Label("Restart", systemImage: "arrow.counterclockwise")
             }
+            Divider()
             Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }

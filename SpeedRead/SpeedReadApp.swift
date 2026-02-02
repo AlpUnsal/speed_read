@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct SpeedReadApp: App {
+struct AxiloApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

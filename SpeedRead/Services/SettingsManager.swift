@@ -87,4 +87,87 @@ class SettingsManager: ObservableObject {
     var accentColor: Color {
         return Color(hex: "E63946")
     }
+    
+    var completedColor: Color {
+        return Color(hex: "4CAF50")
+    }
+    
+    // MARK: - UI Component Colors
+    
+    var cardBackgroundColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "151515")
+        case .grey:
+            return Color(hex: "232323")
+        case .light:
+            return Color(hex: "FFFFFF")
+        }
+    }
+    
+    var cardBorderColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "2A2A2A")
+        case .grey:
+            return Color(hex: "333333")
+        case .light:
+            return Color(hex: "E0E0E0")
+        }
+    }
+    
+    var mutedTextColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "555555")
+        case .grey:
+            return Color(hex: "555555")
+        case .light:
+            return Color(hex: "999999")
+        }
+    }
+    
+    var progressBarBackgroundColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "2A2A2A")
+        case .grey:
+            return Color(hex: "2A2A2A")
+        case .light:
+            return Color(hex: "E5E5E5")
+        }
+    }
+    
+    var buttonBackgroundColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "1A1A1A")
+        case .grey:
+            return Color(hex: "2A2A2A")
+        case .light:
+            return Color(hex: "F5F5F5")
+        }
+    }
+    
+    var primaryButtonBackgroundColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "E5E5E5")
+        case .grey:
+            return Color(hex: "E5E5E5")
+        case .light:
+            return Color(hex: "1A1A1A")
+        }
+    }
+    
+    var primaryButtonTextColor: Color {
+        switch theme {
+        case .black:
+            return Color(hex: "1A1A1A")
+        case .grey:
+            return Color(hex: "1A1A1A")
+        case .light:
+            return Color(hex: "FFFFFF")
+        }
+    }
 }

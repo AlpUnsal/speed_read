@@ -11,6 +11,8 @@ struct RSVPView: View {
     @ObservedObject private var settings = SettingsManager.shared
     
     @State private var showControls = true
+    @State private var showUI = true
+    @State private var uiHideTimer: Timer? = nil
     @AppStorage("hasShownSpeedHint") private var hasShownSpeedHint = false
     @State private var showSpeedHint: Bool
     
@@ -42,7 +44,7 @@ struct RSVPView: View {
                 .ignoresSafeArea()
                 .onTapGesture {
                     if settings.readerMode != .paragraph {
-                        viewModel.togglePlayPause()
+                        handlePlayPause()
                     }
                 }
             
@@ -79,7 +81,6 @@ struct RSVPView: View {
                             }
                         )
                         .padding(.top, 60)
-                        .padding(.bottom, 140)
                     } else {
                         Text("Paragraph View requires iOS 17 or later")
                             .foregroundColor(settings.textColor)
@@ -98,6 +99,8 @@ struct RSVPView: View {
             // UI Overlay
             VStack {
                 // Top bar with exit button, restart, and progress
+                // In paragraph mode: always visible
+                // In RSVP mode: fades when playing
                 HStack {
                     Button(action: { saveProgressAndExit() }) {
                         Image(systemName: "xmark")
@@ -124,47 +127,54 @@ struct RSVPView: View {
                     }
                 }
                 .padding(.top, 8)
+                .opacity(settings.readerMode == .paragraph ? 1.0 : (showUI ? 1.0 : 0.0))
+                .animation(.easeOut(duration: 0.5), value: showUI)
                 
                 Spacer()
                 
                 // Bottom controls - skip backward, play/pause, skip forward
-                HStack(spacing: 48) {
-                    // Skip backward 15 words
-                    Button(action: { viewModel.skipBackward(by: 15) }) {
-                        Image(systemName: "gobackward.15")
-                            .font(.system(size: 18, weight: .light))
-                            .foregroundColor(Color(hex: "555555"))
-                            .frame(width: 44, height: 44) // Larger touch target
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(ScaleButtonStyle())
-                    
-                    // Play/Pause
-                    Button(action: {
-                        if showContextPeek {
-                            hideContextPeek()
+                // Only show in RSVP mode (not paragraph mode)
+                if settings.readerMode != .paragraph {
+                    HStack(spacing: 48) {
+                        // Skip backward 15 words
+                        Button(action: { viewModel.skipBackward(by: 15) }) {
+                            Image(systemName: "gobackward.15")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(Color(hex: "555555"))
+                                .frame(width: 44, height: 44) // Larger touch target
+                                .contentShape(Rectangle())
                         }
-                        viewModel.togglePlayPause()
-                    }) {
-                        Image(systemName: viewModel.isPlaying ? "pause" : "play.fill")
-                            .font(.system(size: 22, weight: .light))
-                            .foregroundColor(Color(hex: "777777"))
-                            .frame(width: 60, height: 60) // Large touch target for main action
-                            .contentShape(Rectangle())
+                        .buttonStyle(ScaleButtonStyle())
+                        
+                        // Play/Pause
+                        Button(action: {
+                            if showContextPeek {
+                                hideContextPeek()
+                            }
+                            handlePlayPause()
+                        }) {
+                            Image(systemName: viewModel.isPlaying ? "pause" : "play.fill")
+                                .font(.system(size: 22, weight: .light))
+                                .foregroundColor(Color(hex: "777777"))
+                                .frame(width: 60, height: 60) // Large touch target for main action
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        
+                        // Skip forward 15 words
+                        Button(action: { viewModel.skipForward(by: 15) }) {
+                            Image(systemName: "goforward.15")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(Color(hex: "555555"))
+                                .frame(width: 44, height: 44) // Larger touch target
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
                     }
-                    .buttonStyle(ScaleButtonStyle())
-                    
-                    // Skip forward 15 words
-                    Button(action: { viewModel.skipForward(by: 15) }) {
-                        Image(systemName: "goforward.15")
-                            .font(.system(size: 18, weight: .light))
-                            .foregroundColor(Color(hex: "555555"))
-                            .frame(width: 44, height: 44) // Larger touch target
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(ScaleButtonStyle())
+                    .padding(.bottom, 50)
+                    .opacity(showUI ? 1.0 : 0.0)
+                    .animation(.easeOut(duration: 0.5), value: showUI)
                 }
-                .padding(.bottom, 50)
             }
             .zIndex(10) // Ensure buttons are above ParagraphView
             
@@ -337,25 +347,31 @@ struct RSVPView: View {
             }
             
             // Progress bar at bottom
-            VStack {
+            VStack(spacing: 0) {
                 Spacer()
                 
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Rectangle()
                             .fill(Color(hex: "2A2A2A"))
-                            .frame(height: 2)
+                            .frame(height: 3)
                         
                         Rectangle()
                             .fill(Color(hex: "E63946"))
-                            .frame(width: geometry.size.width * viewModel.progress, height: 2)
+                            .frame(width: geometry.size.width * viewModel.progress, height: 3)
                     }
                 }
-                .frame(height: 2)
+                .frame(height: 3)
             }
+            .ignoresSafeArea(.all, edges: .bottom)
         }
         .onAppear {
-            viewModel.loadText(text, startingAt: startIndex)
+            viewModel.loadText(
+                text,
+                startingAt: startIndex,
+                fontName: settings.fontName,
+                fontSizeMultiplier: settings.fontSizeMultiplier
+            )
             viewModel.wordsPerMinute = initialWPM
         }
         .onDisappear {
@@ -386,6 +402,27 @@ struct RSVPView: View {
         peekDragOffset = 0
         peekBaseIndex = 0
         wasPlayingBeforePeek = false
+    }
+    
+    private func handlePlayPause() {
+        viewModel.togglePlayPause()
+        
+        // Cancel any existing timer
+        uiHideTimer?.invalidate()
+        
+        // If now playing, start timer to hide UI after 2 seconds
+        if viewModel.isPlaying {
+            uiHideTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+                withAnimation {
+                    showUI = false
+                }
+            }
+        } else {
+            // If paused, show UI immediately
+            withAnimation {
+                showUI = true
+            }
+        }
     }
     
     private func jumpToWordAndDismiss(_ index: Int) {

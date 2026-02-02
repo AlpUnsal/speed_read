@@ -50,7 +50,7 @@ struct SettingsView: View {
                 }
                 
                 // About / Info
-                Section(footer: Text("SpeedRead v1.0")) {
+                Section(footer: Text("Axilo v1.0")) {
                     // Empty section for spacing/footer
                 }
             }

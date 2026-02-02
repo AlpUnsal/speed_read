@@ -1,8 +1,15 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Result of picking a document with all necessary data
+struct PickedDocument {
+    let url: URL
+    let content: String
+    let bookmark: Data?
+}
+
 struct DocumentPicker: UIViewControllerRepresentable {
-    let onDocumentPicked: (URL) -> Void
+    let onDocumentPicked: (PickedDocument) -> Void
     
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let supportedTypes: [UTType] = [
@@ -26,9 +33,9 @@ struct DocumentPicker: UIViewControllerRepresentable {
     }
     
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onDocumentPicked: (URL) -> Void
+        let onDocumentPicked: (PickedDocument) -> Void
         
-        init(onDocumentPicked: @escaping (URL) -> Void) {
+        init(onDocumentPicked: @escaping (PickedDocument) -> Void) {
             self.onDocumentPicked = onDocumentPicked
         }
         
@@ -39,7 +46,17 @@ struct DocumentPicker: UIViewControllerRepresentable {
             guard url.startAccessingSecurityScopedResource() else { return }
             defer { url.stopAccessingSecurityScopedResource() }
             
-            onDocumentPicked(url)
+            // Create bookmark WHILE we have access
+            let bookmark = try? url.bookmarkData(
+                options: .minimalBookmark,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            
+            // Parse content WHILE we have access
+            guard let content = DocumentParser.parse(url: url) else { return }
+            
+            onDocumentPicked(PickedDocument(url: url, content: content, bookmark: bookmark))
         }
     }
 }

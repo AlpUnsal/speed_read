@@ -9,6 +9,15 @@ class RSVPViewModel: ObservableObject {
     @Published var wordsPerMinute: Double = 300
     @Published var progress: Double = 0
     
+    // MARK: - Word Layout Data (precomputed for performance)
+    struct WordLayoutData: Equatable {
+        let word: String
+        let fontSize: CGFloat
+        let orpOffset: CGFloat
+    }
+    
+    @Published var wordLayoutData: [WordLayoutData] = []
+    
     // MARK: - Private Properties
     @Published var words: [String] = [] // Made public for Paragraph View
     @Published var originalText: String = "" // For Paragraph View
@@ -39,7 +48,7 @@ class RSVPViewModel: ObservableObject {
     }
     
     // MARK: - Public Methods
-    func loadText(_ text: String, startingAt index: Int = 0) {
+    func loadText(_ text: String, startingAt index: Int = 0, fontName: String = "EBGaramond-Regular", fontSizeMultiplier: CGFloat = 1.0) {
         self.originalText = text
         self.words = TextTokenizer.tokenize(text)
         
@@ -55,9 +64,30 @@ class RSVPViewModel: ObservableObject {
         }
         self.wordRanges = ranges
         
+        // Precompute layout data for all words (performance optimization)
+        precomputeLayoutData(fontName: fontName, fontSizeMultiplier: fontSizeMultiplier)
+        
         currentIndex = min(index, max(0, words.count - 1))
         currentWord = words.isEmpty ? "" : words[currentIndex]
         updateProgress()
+    }
+    
+    /// Precompute font sizes and ORP offsets for all words.
+    /// This avoids expensive per-frame calculations during scrolling.
+    func precomputeLayoutData(fontName: String, fontSizeMultiplier: CGFloat) {
+        let cache = FontMetricsCache.shared
+        
+        wordLayoutData = words.map { word in
+            let baseFontSize = WordDisplayView.fontSize(for: word)
+            let fontSize = baseFontSize * fontSizeMultiplier
+            let orpOffset = cache.orpOffset(for: word, fontName: fontName, fontSize: fontSize)
+            
+            return WordLayoutData(
+                word: word,
+                fontSize: fontSize,
+                orpOffset: orpOffset
+            )
+        }
     }
     
     func play() {
@@ -128,7 +158,7 @@ class RSVPViewModel: ObservableObject {
         currentWord = word
         
         // Calculate delay with punctuation pause
-        let pauseMultiplier = TextTokenizer.pauseMultiplier(for: word)
+        let pauseMultiplier = TextTokenizer.pauseMultiplier(for: word, wpm: wordsPerMinute)
         let delay = intervalMs * pauseMultiplier / 1000.0
         
         timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
