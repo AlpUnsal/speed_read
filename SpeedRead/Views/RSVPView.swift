@@ -366,7 +366,8 @@ struct RSVPView: View {
             .ignoresSafeArea(.all, edges: .bottom)
         }
         .onAppear {
-            viewModel.loadText(
+            // Use async loading for large documents to avoid blocking UI
+            viewModel.loadTextAsync(
                 text,
                 startingAt: startIndex,
                 fontName: settings.fontName,

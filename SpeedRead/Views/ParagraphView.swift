@@ -1,80 +1,122 @@
 import SwiftUI
 
+// MARK: - Scroll Offset Preference Key (kept for fallback)
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 @available(iOS 17.0, *)
 struct ParagraphView: View {
     @ObservedObject var viewModel: RSVPViewModel
     @ObservedObject var settings = SettingsManager.shared
     
-    // Callbacks (kept for compatibility with parent view)
+    // Callbacks
     var onTap: () -> Void
     var onWordTap: ((Int) -> Void)?
     var onScroll: (() -> Void)?
     var onSpeedScrub: ((CGFloat) -> Void)?
     var onSpeedScrubEnded: (() -> Void)?
     
+    // Scroll position tracking using iOS 17 API
+    @State private var scrollPosition: Int?
+    @State private var isUserScrolling = false
+    
+    private let rowHeight: CGFloat = 65  // 50 height + 15 spacing
+    
     var body: some View {
         GeometryReader { geometry in
-            let centerY = geometry.size.height / 2
+            let fontName = settings.fontName
+            let theme = settings.theme
+            let windowStart = viewModel.windowStartIndex
+            let focalPointY = geometry.size.height * 0.65
+            
+            // The highlighted word is the scroll position (during scroll) or viewModel.currentIndex
+            let highlightedIndex = scrollPosition ?? viewModel.currentIndex
             
             ScrollViewReader { proxy in
-                ScrollView(.vertical) {
+                ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 15) {
-                        ForEach(viewModel.wordLayoutData.indices, id: \.self) { index in
-                            OptimizedWordRow(
-                                layoutData: viewModel.wordLayoutData[index],
-                                index: index,
-                                currentIndex: viewModel.currentIndex,
-                                settings: settings,
+                        ForEach(Array(viewModel.visibleLayoutData.enumerated()), id: \.offset) { displayIndex, layoutData in
+                            let actualIndex = windowStart + displayIndex
+                            let isCurrent = actualIndex == highlightedIndex
+                            
+                            WordRowView(
+                                word: layoutData.word,
+                                fontSize: isCurrent ? layoutData.fontSize : layoutData.fontSize * 0.85,
+                                orpOffset: layoutData.orpOffset * (isCurrent ? 1.0 : 0.85),
+                                isCurrent: isCurrent,
+                                fontName: fontName,
+                                theme: theme,
                                 screenWidth: geometry.size.width
                             )
-                            .id(index)
+                            .id(actualIndex)
                             .onTapGesture {
-                                withAnimation {
-                                    viewModel.goToIndex(index)
-                                }
+                                viewModel.goToIndex(actualIndex)
+                                scrollPosition = actualIndex
                             }
                         }
                     }
                     .scrollTargetLayout()
-                    .drawingGroup() // Rasterize to Metal for smoother scrolling
+                    .padding(.top, focalPointY)
+                    .padding(.bottom, geometry.size.height * 0.35)
                 }
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: Binding(
-                    get: { viewModel.currentIndex },
-                    set: { newValue in
-                        if let index = newValue {
-                            viewModel.goToIndex(index)
+                .scrollPosition(id: $scrollPosition, anchor: UnitPoint(x: 0.5, y: 0.65))
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { _ in
+                            if !isUserScrolling {
+                                isUserScrolling = true
+                                onScroll?()
+                            }
+                        }
+                        .onEnded { _ in
+                            // Sync to viewModel when scroll ends
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                isUserScrolling = false
+                                if let pos = scrollPosition {
+                                    viewModel.goToIndex(pos)
+                                }
+                            }
+                        }
+                )
+                .onChange(of: viewModel.currentIndex) { _, newIndex in
+                    // When viewModel changes (playback), update scroll position
+                    if !isUserScrolling {
+                        scrollPosition = newIndex
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
                         }
                     }
-                ))
-                // Position the current word in the lower portion of the screen
-                .safeAreaPadding(.top, geometry.size.height * 0.6) // Push content down
-                .safeAreaPadding(.bottom, geometry.size.height * 0.15)
-                .scrollIndicators(.hidden)
+                }
+                .onAppear {
+                    scrollPosition = viewModel.currentIndex
+                    proxy.scrollTo(viewModel.currentIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
+                }
             }
-            // Apply gradient mask to fade words at top and bottom
+            // Gradient mask
             .mask(
                 VStack(spacing: 0) {
-                    // Top fade: transparent -> opaque (larger area above the word)
                     LinearGradient(
                         gradient: Gradient(colors: [.clear, .black]),
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: geometry.size.height * 0.5)
+                    .frame(height: geometry.size.height * 0.55)
                     
-                    // Middle: fully visible (where the current word sits)
                     Rectangle()
                         .fill(Color.black)
                         .frame(height: geometry.size.height * 0.15)
                     
-                    // Bottom fade: opaque -> transparent (smaller area below)
                     LinearGradient(
                         gradient: Gradient(colors: [.black, .clear]),
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: geometry.size.height * 0.35)
+                    .frame(height: geometry.size.height * 0.30)
                 }
             )
         }
@@ -82,79 +124,62 @@ struct ParagraphView: View {
     }
 }
 
-// MARK: - Optimized Word Row (Equatable for performance)
+// MARK: - Word Row View
 
-struct OptimizedWordRow: View, Equatable {
-    let layoutData: RSVPViewModel.WordLayoutData
-    let index: Int
-    let currentIndex: Int
-    let settings: SettingsManager
+struct WordRowView: View, Equatable {
+    let word: String
+    let fontSize: CGFloat
+    let orpOffset: CGFloat
+    let isCurrent: Bool
+    let fontName: String
+    let theme: AppTheme
     let screenWidth: CGFloat
     
-    // Equatable conformance - only re-render when these change
-    static func == (lhs: OptimizedWordRow, rhs: OptimizedWordRow) -> Bool {
-        lhs.index == rhs.index &&
-        lhs.currentIndex == rhs.currentIndex &&
-        lhs.layoutData == rhs.layoutData &&
+    static func == (lhs: WordRowView, rhs: WordRowView) -> Bool {
+        lhs.word == rhs.word &&
+        lhs.fontSize == rhs.fontSize &&
+        lhs.isCurrent == rhs.isCurrent &&
+        lhs.fontName == rhs.fontName &&
+        lhs.theme == rhs.theme &&
         lhs.screenWidth == rhs.screenWidth
     }
     
+    private var textColor: Color {
+        switch theme {
+        case .light: return Color(hex: "1A1A1A")
+        default: return Color(hex: "E5E5E5")
+        }
+    }
+    
+    private var contextColor: Color {
+        switch theme {
+        case .light: return Color(hex: "1A1A1A").opacity(0.3)
+        default: return Color(hex: "E5E5E5").opacity(0.3)
+        }
+    }
+    
+    private let highlightColor = Color(hex: "E63946")
+    
     var body: some View {
-        let isCurrent = index == currentIndex
-        
-        // Use precomputed font size, scale down for non-current
-        let fontSize = isCurrent ? layoutData.fontSize : layoutData.fontSize * 0.85
-        
-        ZStack(alignment: .leading) {
+        HStack(spacing: 0) {
             if isCurrent {
-                // Full WordDisplayView with ORP highlighting for current word
-                WordDisplayView(
-                    word: layoutData.word,
-                    fontSize: fontSize,
-                    fontName: settings.fontName,
-                    theme: settings.theme,
-                    animate: false,
-                    useAbsolutePositioning: false
-                )
+                ForEach(Array(word.enumerated()), id: \.offset) { index, character in
+                    Text(String(character))
+                        .font(.custom(fontName, size: fontSize))
+                        .foregroundColor(orpIndex(for: word) == index ? highlightColor : textColor)
+                }
             } else {
-                // Simplified text rendering for context words (much faster)
-                SimpleWordText(
-                    word: layoutData.word,
-                    fontSize: fontSize,
-                    fontName: settings.fontName,
-                    textColor: settings.textColor.opacity(0.3)
-                )
+                Text(word)
+                    .font(.custom(fontName, size: fontSize))
+                    .foregroundColor(contextColor)
             }
         }
         .frame(height: 50)
         .frame(width: screenWidth, alignment: .leading)
-        .offset(x: calculateOffset(fontSize: fontSize))
+        .offset(x: screenWidth * 0.18 - orpOffset)
     }
     
-    /// Calculate X offset to align ORP at target position
-    private func calculateOffset(fontSize: CGFloat) -> CGFloat {
-        let targetX = screenWidth * 0.18
-        
-        // Scale the precomputed ORP offset if font size changed
-        let isCurrent = index == currentIndex
-        let scaleFactor: CGFloat = isCurrent ? 1.0 : 0.85
-        let orpOffset = layoutData.orpOffset * scaleFactor
-        
-        return targetX - orpOffset
-    }
-}
-
-// MARK: - Simple Word Text (fast rendering for context words)
-
-struct SimpleWordText: View {
-    let word: String
-    let fontSize: CGFloat
-    let fontName: String
-    let textColor: Color
-    
-    var body: some View {
-        Text(word)
-            .font(.custom(fontName, size: fontSize))
-            .foregroundColor(textColor)
+    private func orpIndex(for word: String) -> Int {
+        word.count <= 1 ? 0 : 1
     }
 }

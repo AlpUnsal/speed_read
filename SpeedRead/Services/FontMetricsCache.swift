@@ -71,6 +71,29 @@ class FontMetricsCache {
         return firstCharWidth + (secondCharWidth / 2)
     }
     
+    // MARK: - Batch Operations (for performance with large documents)
+    
+    /// Compute ORP offsets for multiple words in a single batch.
+    /// More efficient than calling orpOffset() repeatedly due to reduced lock contention.
+    func orpOffsets(for words: [String], fontName: String, fontSize: CGFloat) -> [CGFloat] {
+        let font = self.font(name: fontName, size: fontSize)
+        
+        return words.map { word in
+            guard word.count > 1 else {
+                return word.size(withFont: font).width / 2
+            }
+            
+            let firstChar = String(word.prefix(1))
+            let secondChar = String(word.dropFirst().prefix(1))
+            
+            // Use cached char widths
+            let firstCharWidth = charWidth(firstChar, fontName: fontName, fontSize: fontSize)
+            let secondCharWidth = charWidth(secondChar, fontName: fontName, fontSize: fontSize)
+            
+            return firstCharWidth + (secondCharWidth / 2)
+        }
+    }
+    
     // MARK: - Cache Management
     
     /// Clear all caches (call when font settings change)
