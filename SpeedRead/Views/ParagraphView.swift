@@ -32,7 +32,7 @@ struct ParagraphView: View {
             let fontName = settings.fontName
             let theme = settings.theme
             let windowStart = viewModel.windowStartIndex
-            let focalPointY = geometry.size.height * 0.65
+            let focalPointY = geometry.size.height * 0.85
             
             // The highlighted word is the scroll position (during scroll) or viewModel.currentIndex
             let highlightedIndex = scrollPosition ?? viewModel.currentIndex
@@ -62,9 +62,9 @@ struct ParagraphView: View {
                     }
                     .scrollTargetLayout()
                     .padding(.top, focalPointY)
-                    .padding(.bottom, geometry.size.height * 0.35)
+                    .padding(.bottom, geometry.size.height * 0.15)
                 }
-                .scrollPosition(id: $scrollPosition, anchor: UnitPoint(x: 0.5, y: 0.65))
+                .scrollPosition(id: $scrollPosition, anchor: UnitPoint(x: 0.5, y: 0.85))
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 1)
                         .onChanged { _ in
@@ -88,16 +88,16 @@ struct ParagraphView: View {
                     if !isUserScrolling {
                         scrollPosition = newIndex
                         withAnimation(.easeOut(duration: 0.15)) {
-                            proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
+                            proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.85))
                         }
                     }
                 }
                 .onAppear {
                     scrollPosition = viewModel.currentIndex
-                    proxy.scrollTo(viewModel.currentIndex, anchor: UnitPoint(x: 0.5, y: 0.65))
+                    proxy.scrollTo(viewModel.currentIndex, anchor: UnitPoint(x: 0.5, y: 0.85))
                 }
             }
-            // Gradient mask
+            // Gradient mask - fade only above, solid at bottom
             .mask(
                 VStack(spacing: 0) {
                     LinearGradient(
@@ -105,18 +105,11 @@ struct ParagraphView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: geometry.size.height * 0.55)
+                    .frame(height: geometry.size.height * 0.70)
                     
                     Rectangle()
                         .fill(Color.black)
-                        .frame(height: geometry.size.height * 0.15)
-                    
-                    LinearGradient(
-                        gradient: Gradient(colors: [.black, .clear]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: geometry.size.height * 0.30)
+                        .frame(height: geometry.size.height * 0.30)
                 }
             )
         }
