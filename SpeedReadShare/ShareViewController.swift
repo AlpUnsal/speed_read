@@ -32,11 +32,32 @@ class ShareViewController: SLComposeServiceViewController {
                         } else if let urlString = item as? String, let url = URL(string: urlString) {
                              self.handleURL(url)
                         } else {
-                             // Fallback or error
                              self.completeRequest()
                         }
                     }
                     return // Handle only the first valid URL found
+                }
+                
+                // Fallback: Check for Plain Text (some apps share URLs as text)
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                    provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { [weak self] (item, error) in
+                        guard let self = self else { return }
+                        
+                        if let text = item as? String {
+                            // Try to extract URL from text using NSDataDetector
+                            if let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue),
+                               let match = detector.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.utf16.count)),
+                               let url = match.url {
+                                self.handleURL(url)
+                            } else {
+                                // No URL found in text
+                                self.completeRequest()
+                            }
+                        } else {
+                             self.completeRequest()
+                        }
+                    }
+                    return
                 }
             }
         }
@@ -61,7 +82,15 @@ class ShareViewController: SLComposeServiceViewController {
             // Parse HTML
             let text = HTMLHelper.extractTextFromHTML(htmlString)
             let contentText = self.contentText ?? ""
-            let title = contentText.isEmpty ? (response?.suggestedFilename ?? "New Article") : contentText
+            var title = contentText
+            
+            if title.isEmpty {
+                 if let extractedTitle = HTMLHelper.extractTitle(from: htmlString), !extractedTitle.isEmpty {
+                     title = extractedTitle
+                 } else {
+                     title = response?.suggestedFilename ?? "New Article"
+                 }
+            }
             
             if !text.isEmpty {
                  // Save to Library

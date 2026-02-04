@@ -89,15 +89,10 @@ class LibraryManager: ObservableObject {
     private let appGroupIdentifier = "group.com.alpunsal.axilo"
     
     private init() {
-        loadDocuments()
-        
-        // Observe changes from other processes (Share Extension)
-        NotificationCenter.default.addObserver(self, selector: #selector(didChangeExternalUserDefaults), name: UserDefaults.didChangeNotification, object: nil)
+        refresh()
     }
     
-    @objc private func didChangeExternalUserDefaults() {
-        loadDocuments()
-    }
+
     
     // MARK: - Public Methods
     
@@ -166,20 +161,42 @@ class LibraryManager: ObservableObject {
     
     // MARK: - Persistence
     
-    private var userDefaults: UserDefaults {
-        UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+    private var libraryFileURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("library.json")
     }
     
     private func saveDocuments() {
-        if let encoded = try? JSONEncoder().encode(documents) {
-            userDefaults.set(encoded, forKey: storageKey)
+        guard let url = libraryFileURL else { return }
+        do {
+            let data = try JSONEncoder().encode(documents)
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+        } catch {
+            print("Error saving library: \(error)")
         }
     }
     
-    private func loadDocuments() {
-        if let data = userDefaults.data(forKey: storageKey),
+    public func refresh() {
+        guard let url = libraryFileURL else { return }
+        
+        // 1. Try loading from file
+        if let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
             documents = decoded
+            return
+        }
+        
+        // 2. Migration: Check UserDefaults (Fallback)
+        // If file doesn't exist, check strict UserDefaults for migration
+        let defaults = UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+        if let data = defaults.data(forKey: storageKey),
+           let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
+            print("Migrating from UserDefaults to File Storage...")
+            documents = decoded
+            saveDocuments() // Write to file
+            
+            // Optional: Clear UserDefaults after successful migration
+            // defaults.removeObject(forKey: storageKey)
         }
     }
 }

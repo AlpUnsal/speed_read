@@ -65,18 +65,26 @@ class RSVPViewModel: ObservableObject {
     
     // Navigation computed properties
     var currentSectionLabel: String {
-        guard let current = currentNavigationPoint,
-              let index = navigationPoints.firstIndex(where: { $0.id == current.id }) else {
-            let pageNum = PageChunker.pageNumber(for: currentIndex)
+        currentSectionLabel(at: currentIndex) ?? ""
+    }
+    
+    func currentSectionLabel(at index: Int) -> String? {
+        guard !navigationPoints.isEmpty else {
+            let pageNum = PageChunker.pageNumber(for: index)
             let totalPages = PageChunker.pageCount(for: words.count)
             return "Page \(pageNum) of \(totalPages)"
         }
         
-        if current.type == .chapter {
-            return current.title
-        } else {
-            return "Page \(index + 1) of \(navigationPoints.count)"
+        let point = navigationPoints.first { $0.contains(wordIndex: index) }
+        
+        if let current = point {
+            if current.type == .chapter {
+                return current.title
+            } else if let idx = navigationPoints.firstIndex(where: { $0.id == current.id }) {
+                return "Page \(idx + 1) of \(navigationPoints.count)"
+            }
         }
+        return nil
     }
     
     var isFirstSection: Bool {

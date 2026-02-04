@@ -41,6 +41,12 @@ struct RSVPView: View {
     @State private var showSearch = false
     @State private var showChapterList = false
     
+    // Scrubbing state
+    @State private var isScrubbing = false
+    @State private var scrubProgress: Double = 0
+    @State private var scrubIndex: Int = 0
+    @State private var wasPlayingBeforeScrub = false
+    
     var body: some View {
         ZStack {
             // Background - only tap-to-play in speed reader mode (not paragraph)
@@ -417,24 +423,116 @@ struct RSVPView: View {
                 .transition(.opacity)
             }
             
+            // Scrubbing Preview Bubble
+            if isScrubbing {
+                VStack(spacing: 4) {
+                    Text(viewModel.word(at: scrubIndex))
+                        .font(.custom(settings.fontName, size: 28))
+                        .fontWeight(.medium)
+                        .foregroundColor(settings.textColor)
+                    
+                    Text("\(scrubIndex + 1) / \(viewModel.totalWords)")
+                        .font(.custom("EBGaramond-Regular", size: 14))
+                        .foregroundColor(settings.secondaryTextColor)
+                    
+                    if let section = viewModel.currentSectionLabel(at: scrubIndex) {
+                        Text(section)
+                            .font(.custom("EBGaramond-Regular", size: 12))
+                            .foregroundColor(settings.mutedTextColor)
+                    }
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(settings.backgroundColor)
+                        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 4)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(settings.cardBorderColor, lineWidth: 0.5)
+                )
+                .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height - 120)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .zIndex(100)
+            }
+
             // Progress bar at bottom
             VStack(spacing: 0) {
                 Spacer()
                 
                 GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        Rectangle()
-                            .fill(Color(hex: "2A2A2A"))
-                            .frame(height: 3)
+                    ZStack(alignment: .bottom) {
+                        // Visual Bar (remains thin and sleek)
+                        ZStack(alignment: .leading) {
+                            Rectangle()
+                                .fill(Color(hex: "2A2A2A"))
+                                .frame(height: 3)
+                            
+                            Rectangle()
+                                .fill(Color(hex: "E63946"))
+                                // Use scrubProgress if scrubbing, otherwise viewModel.progress
+                                .frame(width: geometry.size.width * (isScrubbing ? scrubProgress : viewModel.progress), height: 3)
+                        }
+                        .frame(height: 3)
                         
-                        Rectangle()
-                            .fill(Color(hex: "E63946"))
-                            .frame(width: geometry.size.width * viewModel.progress, height: 3)
+                        // Interaction Zone (Invisible, larger touch target)
+                        Color.clear
+                            .frame(height: 50) // Generous hit target
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        if !isScrubbing {
+                                            // Deadzone: Wait for intentional movement
+                                            // This prevents micro-jitters from triggering or failing the lock too early
+                                            if abs(value.translation.width) < 10 && abs(value.translation.height) < 10 {
+                                                return
+                                            }
+                                            
+                                            // Directional Lock: Check if movement is primarily vertical (Home Swipe)
+                                            // Only enforce this if vertical movement is significant
+                                            if abs(value.translation.height) > abs(value.translation.width) * 1.2 {
+                                                return // Likely a home swipe, ignore
+                                            }
+                                            
+                                            // 2. Start scrubbing
+                                            isScrubbing = true
+                                            wasPlayingBeforeScrub = viewModel.isPlaying
+                                            viewModel.pause()
+                                            let generator = UIImpactFeedbackGenerator(style: .light)
+                                            generator.impactOccurred()
+                                        }
+                                        
+                                        // Calculate progress
+                                        let progress = min(max(value.location.x / geometry.size.width, 0), 1)
+                                        scrubProgress = progress
+                                        
+                                        // Convert to index
+                                        let newIndex = Int(progress * Double(viewModel.totalWords - 1))
+                                        scrubIndex = newIndex
+                                        
+                                        // Live update (fluid scrubbing)
+                                        viewModel.updateIndexOnly(newIndex)
+                                    }
+                                    .onEnded { _ in
+                                        // Only commit if we actually started scrubbing
+                                        if isScrubbing {
+                                            isScrubbing = false
+                                            viewModel.goToIndex(scrubIndex)
+                                            let generator = UIImpactFeedbackGenerator(style: .medium)
+                                            generator.impactOccurred()
+                                        }
+                                    }
+                            )
                     }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
                 }
-                .frame(height: 3)
+                .frame(height: 50) // Container height
+                .padding(.bottom, 0)
             }
-            .ignoresSafeArea(.all, edges: .bottom)
+            .padding(.bottom, 8) // Reduced from 24 to 8 for a lower profile (closer to bottom)
+            .ignoresSafeArea(.all, edges: [.horizontal])
         }
         .onAppear {
             // Use async loading for large documents to avoid blocking UI

@@ -285,7 +285,7 @@ struct ContentView: View {
     
     // MARK: - URL Handling
     
-    private func handleOpenURL(_ url: URL) {
+    private func handleOpenURL(_ url: URL, retryCount: Int = 0) {
         guard url.scheme == "axilo",
               url.host == "open",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: true),
@@ -293,6 +293,8 @@ struct ContentView: View {
               let id = UUID(uuidString: idString)
         else { return }
         
+        // Force reload from disk
+        libraryManager.refresh()
         libraryManager.objectWillChange.send()
         
         if let doc = libraryManager.getDocument(id: id) {
@@ -302,6 +304,12 @@ struct ContentView: View {
                     isReading = true
                 }
             }
+        } else if retryCount < 3 {
+             // Retry mechanism for race condition
+             print("Document not found yet, retrying... (\(retryCount + 1)/3)")
+             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                 handleOpenURL(url, retryCount: retryCount + 1)
+             }
         }
     }
 }
