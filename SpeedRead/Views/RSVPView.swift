@@ -37,6 +37,10 @@ struct RSVPView: View {
     @State private var peekDragOffset: CGFloat = 0
     @State private var wasPlayingBeforePeek = false
     
+    // Navigation & Search state
+    @State private var showSearch = false
+    @State private var showChapterList = false
+    
     var body: some View {
         ZStack {
             // Background - only tap-to-play in speed reader mode (not paragraph)
@@ -81,6 +85,53 @@ struct RSVPView: View {
                             }
                         )
                         .padding(.top, 60)
+                        .overlay(alignment: .bottom) {
+                                // Navigation controls for paragraph mode - [Prev] [Sections] [Next] [Search]
+                                HStack(spacing: 24) {
+                                    // Previous section
+                                    Button(action: { viewModel.jumpToPreviousSection() }) {
+                                        Image(systemName: "chevron.backward.2")
+                                            .font(.system(size: 18, weight: .light))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .frame(width: 44, height: 44)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                    .disabled(viewModel.isFirstSection)
+                                    
+                                    // Sections button
+                                    Button(action: { showChapterList = true }) {
+                                        Image(systemName: "list.bullet")
+                                            .font(.system(size: 18, weight: .light))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .frame(width: 44, height: 44)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                    
+                                    // Next section
+                                    Button(action: { viewModel.jumpToNextSection() }) {
+                                        Image(systemName: "chevron.forward.2")
+                                            .font(.system(size: 18, weight: .light))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .frame(width: 44, height: 44)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                    .disabled(viewModel.isLastSection)
+                                    
+                                    // Search button
+                                    Button(action: { showSearch = true }) {
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.system(size: 18, weight: .light))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .frame(width: 44, height: 44)
+                                            .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                }
+                                .padding(.bottom, 20)
+                        }
                     } else {
                         Text("Paragraph View requires iOS 17 or later")
                             .foregroundColor(settings.textColor)
@@ -132,16 +183,26 @@ struct RSVPView: View {
                 
                 Spacer()
                 
-                // Bottom controls - skip backward, play/pause, skip forward
+                // Bottom controls - [Sections] [◀15] [Play/Pause] [15▶] [Search]
                 // Only show in RSVP mode (not paragraph mode)
                 if settings.readerMode != .paragraph {
-                    HStack(spacing: 48) {
+                    HStack(spacing: 24) {
+                        // Sections button (opens chapter/heading list)
+                        Button(action: { showChapterList = true }) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(Color(hex: "555555"))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        
                         // Skip backward 15 words
                         Button(action: { viewModel.skipBackward(by: 15) }) {
                             Image(systemName: "gobackward.15")
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(Color(hex: "555555"))
-                                .frame(width: 44, height: 44) // Larger touch target
+                                .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(ScaleButtonStyle())
@@ -156,7 +217,7 @@ struct RSVPView: View {
                             Image(systemName: viewModel.isPlaying ? "pause" : "play.fill")
                                 .font(.system(size: 22, weight: .light))
                                 .foregroundColor(Color(hex: "777777"))
-                                .frame(width: 60, height: 60) // Large touch target for main action
+                                .frame(width: 60, height: 60)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(ScaleButtonStyle())
@@ -166,12 +227,22 @@ struct RSVPView: View {
                             Image(systemName: "goforward.15")
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(Color(hex: "555555"))
-                                .frame(width: 44, height: 44) // Larger touch target
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        
+                        // Search button
+                        Button(action: { showSearch = true }) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(Color(hex: "555555"))
+                                .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(ScaleButtonStyle())
                     }
-                    .padding(.bottom, 50)
+                    .padding(.bottom, 20)
                     .opacity(showUI ? 1.0 : 0.0)
                     .animation(.easeOut(duration: 0.5), value: showUI)
                 }
@@ -372,13 +443,29 @@ struct RSVPView: View {
                 startingAt: startIndex,
                 fontName: settings.fontName,
                 fontSizeMultiplier: settings.fontSizeMultiplier
-            )
+            ) {
+                // Setup navigation points after loading
+                if let docId = documentId,
+                   let doc = LibraryManager.shared.documents.first(where: { $0.id == docId }) {
+                    viewModel.setNavigationPoints(doc.navigationPoints)
+                } else {
+                    // Generate page-based navigation for documents without stored nav points
+                    let pages = PageChunker.createPages(from: viewModel.words)
+                    viewModel.setNavigationPoints(pages)
+                }
+            }
             viewModel.wordsPerMinute = initialWPM
         }
         .onDisappear {
             saveProgress()
         }
         .statusBarHidden(true)
+        .sheet(isPresented: $showChapterList) {
+            ChapterListView(viewModel: viewModel, isPresented: $showChapterList)
+        }
+        .fullScreenCover(isPresented: $showSearch) {
+            WordSearchView(viewModel: viewModel, isPresented: $showSearch)
+        }
     }
     
     private func saveProgress() {

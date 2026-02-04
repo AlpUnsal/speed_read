@@ -47,6 +47,11 @@ class SettingsManager: ObservableObject {
         if fontSizeMultiplier > 1.25 {
             fontSizeMultiplier = 1.25
         }
+        
+        // Reset paragraph mode to rsvp (scroll view disabled)
+        if readerMode == .paragraph {
+            readerMode = .rsvp
+        }
     }
     
     // MARK: - Color Palette

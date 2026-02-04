@@ -17,21 +17,6 @@ struct SettingsView: View {
                     .pickerStyle(SegmentedPickerStyle())
                 }
                 
-                // Section 2: Reader Mode
-                Section(header: Text("Reader Mode")) {
-                    Picker("Mode", selection: $settings.readerMode) {
-                        ForEach(ReaderMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .onChange(of: settings.readerMode) { _ in
-                        // Haptic feedback when switching modes
-                        let generator = UIImpactFeedbackGenerator(style: .medium)
-                        generator.impactOccurred()
-                    }
-                }
-                
                 // Section 3: Font
                 Section(header: Text("Font")) {
                     Picker("Font Family", selection: $settings.fontName) {

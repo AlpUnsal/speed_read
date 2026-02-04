@@ -10,6 +10,16 @@ class RSVPViewModel: ObservableObject {
     @Published var wordsPerMinute: Double = 300
     @Published var progress: Double = 0
     @Published var isLoading: Bool = false
+    @Published var scrollResetID = UUID()
+    
+    // MARK: - Navigation Properties
+    @Published var navigationPoints: [NavigationPoint] = []
+    @Published var currentNavigationPoint: NavigationPoint?
+    
+    // MARK: - Search Properties
+    @Published var searchResults: [SearchResult] = []
+    @Published var currentSearchIndex: Int?
+    private var searchQuery: String = ""
     
     // MARK: - Word Layout Data
     struct WordLayoutData: Equatable {
@@ -20,7 +30,7 @@ class RSVPViewModel: ObservableObject {
     
     // MARK: - Sliding Window Virtualization
     // For very large documents (1M+ words), we only keep a window of words in memory
-    private let windowRadius = 250  // 250 words before + 250 words after = 500 total
+    private let windowRadius = 2500  // 2500 words before + 2500 words after = 5000 total (Aggressive Preloading)
     @Published var windowStartIndex: Int = 0
     @Published var visibleLayoutData: [WordLayoutData] = []
     
@@ -51,6 +61,38 @@ class RSVPViewModel: ObservableObject {
     // Window info for gesture-based scrolling
     var windowEndIndex: Int {
         min(windowStartIndex + visibleLayoutData.count, words.count)
+    }
+    
+    // Navigation computed properties
+    var currentSectionLabel: String {
+        guard let current = currentNavigationPoint,
+              let index = navigationPoints.firstIndex(where: { $0.id == current.id }) else {
+            let pageNum = PageChunker.pageNumber(for: currentIndex)
+            let totalPages = PageChunker.pageCount(for: words.count)
+            return "Page \(pageNum) of \(totalPages)"
+        }
+        
+        if current.type == .chapter {
+            return current.title
+        } else {
+            return "Page \(index + 1) of \(navigationPoints.count)"
+        }
+    }
+    
+    var isFirstSection: Bool {
+        guard let current = currentNavigationPoint,
+              let index = navigationPoints.firstIndex(where: { $0.id == current.id }) else {
+            return currentIndex == 0
+        }
+        return index == 0
+    }
+    
+    var isLastSection: Bool {
+        guard let current = currentNavigationPoint,
+              let index = navigationPoints.firstIndex(where: { $0.id == current.id }) else {
+            return currentIndex >= words.count - 1
+        }
+        return index == navigationPoints.count - 1
     }
     
     // MARK: - Debug
@@ -203,6 +245,7 @@ class RSVPViewModel: ObservableObject {
         pause()
         currentIndex = 0
         currentWord = words.first ?? ""
+        scrollResetID = UUID() // Force ScrollView reconstruction
         updateProgress()
         updateWindow(around: 0)
     }
@@ -233,6 +276,16 @@ class RSVPViewModel: ObservableObject {
         }
         updateProgress()
         updateWindow(around: currentIndex)
+    }
+    
+    /// Lightweight update that doesn't trigger window re-computation
+    /// Used during scrolling to keep the index in sync without lag
+    func updateIndexOnly(_ index: Int) {
+        currentIndex = max(0, min(index, words.count - 1))
+        if currentIndex < words.count {
+            currentWord = words[currentIndex]
+        }
+        updateProgress()
     }
     
     // MARK: - Private Methods
@@ -271,5 +324,124 @@ class RSVPViewModel: ObservableObject {
         } else {
             progress = Double(currentIndex) / Double(words.count)
         }
+        // Update current navigation point
+        currentNavigationPoint = navigationPoints.first { $0.contains(wordIndex: currentIndex) }
+    }
+    
+    // MARK: - Navigation Methods
+    
+    /// Set navigation points for the document
+    func setNavigationPoints(_ points: [NavigationPoint]) {
+        self.navigationPoints = points
+        currentNavigationPoint = navigationPoints.first { $0.contains(wordIndex: currentIndex) }
+    }
+    
+    /// Jump to the next section (chapter/page)
+    @discardableResult
+    func jumpToNextSection() -> Bool {
+        guard !navigationPoints.isEmpty else { return false }
+        
+        if let current = currentNavigationPoint,
+           let currentIdx = navigationPoints.firstIndex(where: { $0.id == current.id }),
+           currentIdx < navigationPoints.count - 1 {
+            let next = navigationPoints[currentIdx + 1]
+            goToIndex(next.wordStartIndex)
+            return true
+        }
+        return false
+    }
+    
+    /// Jump to the previous section (chapter/page)
+    @discardableResult
+    func jumpToPreviousSection() -> Bool {
+        guard !navigationPoints.isEmpty else { return false }
+        
+        if let current = currentNavigationPoint,
+           let currentIdx = navigationPoints.firstIndex(where: { $0.id == current.id }) {
+            // If we're past the start of current chapter, go to its start
+            if currentIndex > current.wordStartIndex + 10 {
+                goToIndex(current.wordStartIndex)
+                return true
+            }
+            // Otherwise go to previous chapter
+            if currentIdx > 0 {
+                let prev = navigationPoints[currentIdx - 1]
+                goToIndex(prev.wordStartIndex)
+                return true
+            }
+        }
+        return false
+    }
+    
+    /// Jump to a specific navigation point
+    func jumpToNavigationPoint(_ point: NavigationPoint) {
+        goToIndex(point.wordStartIndex)
+    }
+    
+    // MARK: - Search Methods
+    
+    /// Search for a query in the document
+    func search(query: String) {
+        searchQuery = query
+        if query.isEmpty {
+            searchResults = []
+            currentSearchIndex = nil
+            return
+        }
+        
+        searchResults = WordSearcher.search(query: query, in: words, caseSensitive: false)
+        
+        // Find nearest result to current position
+        if !searchResults.isEmpty {
+            currentSearchIndex = searchResults.enumerated().min(by: { 
+                abs($0.element.wordIndex - currentIndex) < abs($1.element.wordIndex - currentIndex) 
+            })?.offset ?? 0
+        } else {
+            currentSearchIndex = nil
+        }
+    }
+    
+    /// Jump to the next search result
+    func jumpToNextSearchResult() {
+        guard !searchResults.isEmpty else { return }
+        
+        if let current = currentSearchIndex {
+            currentSearchIndex = (current + 1) % searchResults.count
+        } else {
+            currentSearchIndex = 0
+        }
+        
+        if let index = currentSearchIndex {
+            goToIndex(searchResults[index].wordIndex)
+        }
+    }
+    
+    /// Jump to the previous search result
+    func jumpToPreviousSearchResult() {
+        guard !searchResults.isEmpty else { return }
+        
+        if let current = currentSearchIndex {
+            currentSearchIndex = current > 0 ? current - 1 : searchResults.count - 1
+        } else {
+            currentSearchIndex = searchResults.count - 1
+        }
+        
+        if let index = currentSearchIndex {
+            goToIndex(searchResults[index].wordIndex)
+        }
+    }
+    
+    /// Jump to a specific search result
+    func jumpToSearchResult(at index: Int) {
+        guard index >= 0 && index < searchResults.count else { return }
+        currentSearchIndex = index
+        goToIndex(searchResults[index].wordIndex)
+    }
+    
+    /// Clear search state
+    func clearSearch() {
+        searchQuery = ""
+        searchResults = []
+        currentSearchIndex = nil
     }
 }
