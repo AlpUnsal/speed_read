@@ -89,6 +89,9 @@
 		5D58F2DC2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
 		5D58F2DD2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
 		5D58F2DE2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
+		5D58F2E02F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
+		5D58F2E12F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
+		5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		5DA37AD82F18286000135432 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5DA37AD72F18286000135432 /* ZIPFoundation */; };
@@ -167,6 +170,7 @@
 		5D58F2AB2F33ADDF00E08ACB /* WordSearcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordSearcher.swift; sourceTree = "<group>"; };
 		5D58F2CD2F33AEE000E08ACB /* NavigationPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPoint.swift; sourceTree = "<group>"; };
 		5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadingDetector.swift; sourceTree = "<group>"; };
+		5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFParsingService.swift; sourceTree = "<group>"; };
 		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParagraphView.swift; sourceTree = "<group>"; };
 		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		770000001111111100000011 /* SpeedReadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedReadApp.swift; sourceTree = "<group>"; };
@@ -337,6 +341,7 @@
 				5D58F2AA2F33ADDF00E08ACB /* ThumbnailManager.swift */,
 				5D58F2AB2F33ADDF00E08ACB /* WordSearcher.swift */,
 				5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */,
+				5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -515,6 +520,7 @@
 				5D58F2BE2F33ADDF00E08ACB /* FontMetricsCache.swift in Sources */,
 				5D58F2BF2F33ADDF00E08ACB /* EPUBParser.swift in Sources */,
 				5D58F2C02F33ADDF00E08ACB /* SettingsManager.swift in Sources */,
+				5D58F2E12F3638A000E08ACB /* PDFParsingService.swift in Sources */,
 				5D58F2C12F33ADDF00E08ACB /* ThumbnailManager.swift in Sources */,
 				5D58F2952F33ADB400E08ACB /* LibraryView.swift in Sources */,
 				5D58F2D12F33AEE000E08ACB /* NavigationPoint.swift in Sources */,
@@ -548,6 +554,7 @@
 				5D58F2832F33ADB400E08ACB /* ChapterListView.swift in Sources */,
 				5D58F2852F33ADB400E08ACB /* WordDisplayView.swift in Sources */,
 				5D58F2862F33ADB400E08ACB /* VerticalSlider.swift in Sources */,
+				5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */,
 				5D58F2C22F33ADDF00E08ACB /* PageChunker.swift in Sources */,
 				5D58F2CF2F33AEE000E08ACB /* NavigationPoint.swift in Sources */,
 				5D58F2C32F33ADDF00E08ACB /* LibraryManager.swift in Sources */,
@@ -595,6 +602,7 @@
 				5D58F2872F33ADB400E08ACB /* DocumentThumbnail.swift in Sources */,
 				5D58F2882F33ADB400E08ACB /* LibraryView.swift in Sources */,
 				5D58F2892F33ADB400E08ACB /* DocumentPicker.swift in Sources */,
+				5D58F2E02F3638A000E08ACB /* PDFParsingService.swift in Sources */,
 				5D58F2D02F33AEE000E08ACB /* NavigationPoint.swift in Sources */,
 				5D58F28B2F33ADB400E08ACB /* ParagraphView.swift in Sources */,
 				5D58F28C2F33ADB400E08ACB /* ContentView.swift in Sources */,

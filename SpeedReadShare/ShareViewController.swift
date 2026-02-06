@@ -81,13 +81,16 @@ class ShareViewController: SLComposeServiceViewController {
             
             // Parse HTML
             let text = HTMLHelper.extractTextFromHTML(htmlString)
-            let contentText = self.contentText ?? ""
+            let contentText = self.contentText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let extractedTitle = HTMLHelper.extractTitle(from: htmlString)
+            
             var title = contentText
             
-            if title.isEmpty {
-                 if let extractedTitle = HTMLHelper.extractTitle(from: htmlString), !extractedTitle.isEmpty {
-                     title = extractedTitle
-                 } else {
+            // Prioritize extracted title if user input is empty or looks like a URL
+            if title.isEmpty || self.isURL(title) {
+                 if let validExtracted = extractedTitle, !validExtracted.isEmpty {
+                     title = validExtracted
+                 } else if title.isEmpty {
                      title = response?.suggestedFilename ?? "New Article"
                  }
             }
@@ -131,5 +134,18 @@ class ShareViewController: SLComposeServiceViewController {
         // Actually, NSExtensionContext has an openURL method but it's not exposed in Swift perfectly sometimes.
         // Let's try to use the extensionContext open method which is the standard way.
         self.extensionContext?.open(url, completionHandler: nil)
+    }
+    
+    // MARK: - Helpers
+    
+    private func isURL(_ string: String) -> Bool {
+        // Basic check: can we make a URL and does it have a scheme?
+        // Also check if it has spaces, as titles often do but URLs don't (usually encoded)
+        if string.contains(" ") { return false }
+        
+        if let url = URL(string: string), url.scheme != nil {
+            return true
+        }
+        return false
     }
 }

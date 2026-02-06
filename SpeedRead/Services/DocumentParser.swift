@@ -93,82 +93,18 @@ struct DocumentParser {
     // MARK: - PDF Parser
     // MARK: - PDF Parser
     private static func parsePDF(url: URL) -> String? {
-        guard let document = PDFDocument(url: url) else { return nil }
+        // Use the dedicated PDFParsingService which handles:
+        // - Vision OCR with .accurate level
+        // - Header/Footer filtering
+        // - Citation & noise removal
+        let words = PDFParsingService.parsePDFWords(url: url)
         
-        // Attempt to parse using Vision (OCR) first for better accuracy
-        if let visionText = parsePDFWithVision(document: document) {
-            return visionText
+        if words.isEmpty {
+            return nil
         }
         
-        // Fallback to standard PDFKit extraction
-        return parsePDFLegacy(document: document)
-    }
-    
-    private static func parsePDFWithVision(document: PDFDocument) -> String? {
-        var mainText: [String] = []
-        
-        for i in 0..<document.pageCount {
-            guard let page = document.page(at: i) else { continue }
-            
-            // Render page to image for Vision request
-            guard let cgImage = createCGImage(from: page) else { continue }
-            
-            let request = VNRecognizeTextRequest { request, error in
-                if let error = error {
-                    logger.error("Vision text request error: \(error.localizedDescription)")
-                    return
-                }
-                
-                guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
-                
-                // Sort by Y position (top to bottom)
-                // Vision origin is bottom-left, so higher Y is higher up
-                let sortedObservations = observations.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-                
-                let pageText = sortedObservations.compactMap { observation in
-                    return observation.topCandidates(1).first?.string
-                }
-                
-                mainText.append(contentsOf: pageText)
-            }
-            
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                logger.error("Failed to perform Vision request: \(error.localizedDescription)")
-            }
-        }
-        
-        let fullText = mainText.joined(separator: "\n")
-        return fullText.isEmpty ? nil : fullText
-    }
-    
-    private static func createCGImage(from page: PDFPage) -> CGImage? {
-        let pageRect = page.bounds(for: .mediaBox)
-        let renderer = UIGraphicsImageRenderer(size: pageRect.size)
-        let image = renderer.image { ctx in
-            UIColor.white.set()
-            ctx.fill(pageRect)
-            ctx.cgContext.translateBy(x: 0.0, y: pageRect.size.height)
-            ctx.cgContext.scaleBy(x: 1.0, y: -1.0)
-            page.draw(with: .mediaBox, to: ctx.cgContext)
-        }
-        return image.cgImage
-    }
-
-    private static func parsePDFLegacy(document: PDFDocument) -> String? {
-        var fullText = ""
-        for i in 0..<document.pageCount {
-            if let page = document.page(at: i),
-               let pageText = page.string {
-                fullText += pageText + " "
-            }
-        }
-        return fullText.isEmpty ? nil : fullText
+        // Join words with spaces for the RSVP reader
+        return words.joined(separator: " ")
     }
     
     // MARK: - DOCX Parser
