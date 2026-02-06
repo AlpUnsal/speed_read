@@ -22,33 +22,80 @@ struct TextTokenizer {
         return words
     }
     
-    /// Split a word on specific punctuation (em dash, en dash, slash)
-    /// Returns array of tokens, including the punctuation as separate tokens
+    /// Split a word on specific separators (em dash, en dash, double hyphen, ellipses)
+    /// Attaches the separator to the PRECEDING word.
+    /// Keeps slashes combined (does not split).
     private static func splitOnPunctuation(_ text: String) -> [String] {
+        // If text is short, quick check to avoid processing
+        if text.count < 2 { return [text] }
+        
         var result: [String] = []
-        var currentWord = ""
+        var currentToken = ""
         
-        for char in text {
-            // Em dash (—), en dash (–), or slash (/)
-            if char == "\u{2014}" || char == "\u{2013}" || char == "/" {
-                // Add the word before the punctuation
-                if !currentWord.isEmpty {
-                    result.append(currentWord)
-                    currentWord = ""
-                }
-                // Add the punctuation as its own token
-                result.append(String(char))
-            } else {
-                currentWord.append(char)
+        // We'll advance through the string character by character (or lookahead)
+        let chars = Array(text)
+        var i = 0
+        
+        while i < chars.count {
+            let char = chars[i]
+            
+            // Check for multi-char separators first
+            
+            // 1. Double Hyphen "--"
+            if char == "-" && i + 1 < chars.count && chars[i+1] == "-" {
+                // Found "--"
+                // Append "--" to current token
+                currentToken.append("-")
+                currentToken.append("-")
+                
+                // Push current token and reset
+                result.append(currentToken)
+                currentToken = ""
+                
+                i += 2
+                continue
             }
+            
+            // 2. Ellipsis "..." (3 dots)
+            if char == "." && i + 2 < chars.count && chars[i+1] == "." && chars[i+2] == "." {
+                // Found "..."
+                currentToken.append(".")
+                currentToken.append(".")
+                currentToken.append(".")
+                
+                // Push current token and reset
+                result.append(currentToken)
+                currentToken = ""
+                
+                i += 3
+                continue
+            }
+            
+            // 3. Single-char separators: Em dash (—), En dash (–), Ellipsis char (…)
+            if char == "\u{2014}" || char == "\u{2013}" || char == "\u{2026}" { // \u{2026} is …
+                // Attach to current token
+                currentToken.append(char)
+                
+                // Push and reset
+                result.append(currentToken)
+                currentToken = ""
+                
+                i += 1
+                continue
+            }
+            
+            // Regular character (including /)
+            currentToken.append(char)
+            i += 1
         }
         
-        // Add any remaining word
-        if !currentWord.isEmpty {
-            result.append(currentWord)
+        // Append any remaining text
+        if !currentToken.isEmpty {
+            result.append(currentToken)
         }
         
-        return result
+        // Filter out empty strings just in case logic produced them
+        return result.filter { !$0.isEmpty }
     }
     
     /// Calculate recommended pause multiplier based on punctuation and speed
@@ -89,9 +136,19 @@ struct TextTokenizer {
                 // Em/en dash: ~1.55x at 300 WPM
                 return 1.0 + (0.55 * speedFactor)
             default:
+                // If it contains a slash (either/or), treat like a comma
+                if word.contains("/") {
+                    return 1.0 + (0.50 * speedFactor)
+                }
                 return 1.0
             }
         }
+        
+        // Fallback check for slash if no meaningful char was found (unlikely but safe)
+        if word.contains("/") {
+            return 1.0 + (0.50 * speedFactor)
+        }
+        
         return 1.0
     }
 }

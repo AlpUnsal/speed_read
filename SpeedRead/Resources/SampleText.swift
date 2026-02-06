@@ -25,5 +25,13 @@ struct SampleText {
     "Is it true?" asked John.
     (This is a parenthetical statement.)
     It was the end."
+    
+    Tokenizer Tests:
+    Word—connected (Em dash)
+    Word–connected (En dash)
+    Word--connected (Double hyphen)
+    Word...connected (Ellipsis dots)
+    Word…connected (Ellipsis char)
+    Either/Or (Slash - should stay connected)
     """
 }
