@@ -55,7 +55,18 @@ struct TextTokenizer {
     /// The pause is speed-relative: faster reading = shorter pauses, slower = slightly longer
     /// Returns a multiplier for the display time (1.0 = normal, slightly higher = subtle pause)
     static func pauseMultiplier(for word: String, wpm: Double = 300) -> Double {
-        let lastChar = word.last
+        // Characters that might mask the actual punctuation at the end of a word
+        let closingPunctuation = CharacterSet(charactersIn: "\"\u{201D}\u{2019}'\u{0027})]}\u{201C}\u{2018}")
+        
+        // Find the last "meaningful" character (skipping quotes, brackets, etc.)
+        var meaningfulChar: Character? = nil
+        
+        for char in word.reversed() {
+            if let scalar = char.unicodeScalars.first, !closingPunctuation.contains(scalar) {
+                meaningfulChar = char
+                break
+            }
+        }
         
         // Calculate a speed factor: higher WPM = smaller additional pause
         // At 300 WPM (baseline), factor is 1.0
@@ -66,7 +77,7 @@ struct TextTokenizer {
         
         // Pause additions: noticeable pauses that mirror natural speech rhythm
         // At 60fps, 1 frame ≈ 16.7ms
-        if let char = lastChar {
+        if let char = meaningfulChar {
             switch char {
             case ".", "!", "?":
                 // Sentence end: ~1.65x at 300 WPM
