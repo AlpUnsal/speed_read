@@ -22,48 +22,31 @@ struct DocumentParser {
     }
     
     /// Parse document at URL and return text with navigation points
+    /// Parse document at URL and return text with navigation points
     static func parseWithNavigation(url: URL) -> ParseResult? {
         let fileExtension = url.pathExtension.lowercased()
         
         switch fileExtension {
         case "txt":
             if let text = parseTXT(url: url) {
-                // Try to detect headings first, fallback to pages
                 let headings = HeadingDetector.createNavigationPoints(from: text)
-                if !headings.isEmpty {
-                    return ParseResult(text: text, navigationPoints: headings)
-                }
-                let pages = PageChunker.createPages(from: text)
-                return ParseResult(text: text, navigationPoints: pages)
+                let points = !headings.isEmpty ? headings : PageChunker.createPages(from: text)
+                return ParseResult(text: text, navigationPoints: points)
             }
             return nil
         case "pdf":
-            if let text = parsePDF(url: url) {
-                // TODO: Add PDF outline extraction
-                let pages = PageChunker.createPages(from: text)
-                return ParseResult(text: text, navigationPoints: pages)
-            }
-            return nil
+            return parsePDF(url: url)
         case "docx":
-            // Use new DOCX parser with heading extraction
             if let result = DOCXParser.parseWithHeadings(url: url) {
-                if !result.navigationPoints.isEmpty {
-                    return ParseResult(text: result.text, navigationPoints: result.navigationPoints)
-                }
-                // Fallback to pages
-                let pages = PageChunker.createPages(from: result.text)
-                return ParseResult(text: result.text, navigationPoints: pages)
+                let points = !result.navigationPoints.isEmpty ? result.navigationPoints : PageChunker.createPages(from: result.text)
+                return ParseResult(text: result.text, navigationPoints: points)
             }
             return nil
         case "rtf":
             if let text = parseRTF(url: url) {
-                // Try heading detection for RTF (similar to plain text)
                 let headings = HeadingDetector.createNavigationPoints(from: text)
-                if !headings.isEmpty {
-                    return ParseResult(text: text, navigationPoints: headings)
-                }
-                let pages = PageChunker.createPages(from: text)
-                return ParseResult(text: text, navigationPoints: pages)
+                let points = !headings.isEmpty ? headings : PageChunker.createPages(from: text)
+                return ParseResult(text: text, navigationPoints: points)
             }
             return nil
         case "epub":
@@ -74,6 +57,39 @@ struct DocumentParser {
         default:
             return nil
         }
+    }
+    
+    /// Parse and Save directly to Inbox (Crash Prevention Strategy)
+    /// Returns the UUID of the saved document
+    static func parseAndSave(url: URL) -> UUID? {
+        // logger.debug("DocumentParser: Starting parseAndSave...")
+        
+        var savedID: UUID?
+        
+        autoreleasepool {
+            // 1. Parse (using existing method)
+            if let result = parseWithNavigation(url: url) {
+                let title = url.deletingPathExtension().lastPathComponent
+                // logger.debug("DocumentParser: Parsing complete. Text: \(result.text.count)")
+                
+                // 2. Create Document
+                let newDoc = ReadingDocument(
+                    name: title,
+                    content: result.text,
+                    navigationPoints: result.navigationPoints
+                )
+                
+                // 3. Save to Inbox
+                // logger.debug("DocumentParser: Saving to Inbox...")
+                LibraryManager.saveToInbox(newDoc)
+                
+                // logger.debug("DocumentParser: Saved UUID: \(newDoc.id)")
+            } else {
+                // logger.error("DocumentParser: Parsing returned nil")
+            }
+        }
+        
+        return savedID
     }
     
     // MARK: - TXT Parser
@@ -92,19 +108,39 @@ struct DocumentParser {
     // MARK: - PDF Parser
     // MARK: - PDF Parser
     // MARK: - PDF Parser
-    private static func parsePDF(url: URL) -> String? {
-        // Use the dedicated PDFParsingService which handles:
-        // - Vision OCR with .accurate level
-        // - Header/Footer filtering
-        // - Citation & noise removal
-        let words = PDFParsingService.parsePDFWords(url: url)
+    // MARK: - PDF Parser
+    private static func parsePDF(url: URL) -> ParseResult? {
+        // Use the dedicated PDFParsingService
+        // Now returns (text: String, navigationPoints: [NavigationPoint])
+        var finalResult: ParseResult?
         
-        if words.isEmpty {
-            return nil
+        // Wrap in autoreleasepool to ensure PDFKit memory is released BEFORE we return
+        autoreleasepool {
+            // logger.debug("DocumentParser: Calling PDFParsingService...")
+            let (text, navigationPoints) = PDFParsingService.parsePDF(url: url)
+            // logger.debug("DocumentParser: PDF Service returned text length: \(text.count)")
+            
+            if !text.isEmpty {
+                // If we found specific navigation points (Sections), use them.
+                // Otherwise, fallback to generic PageChunker
+                if !navigationPoints.isEmpty {
+                     // logger.debug("DocumentParser: Creating result with sections")
+                     finalResult = ParseResult(text: text, navigationPoints: navigationPoints)
+                } else {
+                     // logger.debug("DocumentParser: Fallback to pages")
+                     let pages = PageChunker.createPages(from: text)
+                     finalResult = ParseResult(text: text, navigationPoints: pages)
+                }
+            } else {
+                logger.error("DocumentParser: Empty text!")
+            }
         }
         
-        // Join words with spaces for the RSVP reader
-        return words.joined(separator: " ")
+        if finalResult != nil {
+            // logger.debug("DocumentParser: Returning result (Autoreleasepool drained)")
+        }
+        
+        return finalResult
     }
     
     // MARK: - DOCX Parser

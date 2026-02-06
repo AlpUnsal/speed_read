@@ -1,0 +1,24 @@
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/LibraryView.swift":
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/LibraryView.d"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/LibraryView.dia"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/LibraryView.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/LibraryView.o"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/LibraryView.swiftdeps"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/PDFParsingService.swift":
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/PDFParsingService.swiftdeps"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/PDFParsingService.d"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/PDFParsingService.dia"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/PDFParsingService.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/PDFParsingService.o"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/ThumbnailManager.swift":
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ThumbnailManager.dia"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ThumbnailManager.swiftconstvalues"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ThumbnailManager.d"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ThumbnailManager.o"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ThumbnailManager.swiftdeps"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/SettingsManager.swift":
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsManager.d"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsManager.swiftconstvalues"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsManager.swiftdeps"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsManager.o"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsManager.dia"

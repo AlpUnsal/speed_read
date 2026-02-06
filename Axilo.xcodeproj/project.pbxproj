@@ -84,14 +84,14 @@
 		5D58F2D32F33AF0D00E08ACB /* RSVPViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000017 /* RSVPViewModel.swift */; };
 		5D58F2D42F33AF1C00E08ACB /* SampleText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001D /* SampleText.swift */; };
 		5D58F2D52F33AF1C00E08ACB /* SampleText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001D /* SampleText.swift */; };
-		5D58F2D82F33AF9300E08ACB /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D58F2D72F33AF9300E08ACB /* ZIPFoundation */; };
-		5D58F2DA2F33AFAC00E08ACB /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D58F2D92F33AFAC00E08ACB /* ZIPFoundation */; };
 		5D58F2DC2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
 		5D58F2DD2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
 		5D58F2DE2F33B65500E08ACB /* HeadingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */; };
 		5D58F2E02F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
 		5D58F2E12F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
 		5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
+		5D7201832F365FED003D07D8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7201822F365FED003D07D8 /* ZIPFoundation */; };
+		5D7201852F366071003D07D8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7201842F366071003D07D8 /* ZIPFoundation */; };
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		5DA37AD82F18286000135432 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5DA37AD72F18286000135432 /* ZIPFoundation */; };
@@ -203,10 +203,17 @@
 			);
 			target = 5D58F1B92F31361E00E08ACB /* AxiloWeb */;
 		};
+		5D7201892F3662A9003D07D8 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				InboxShareViewController.swift,
+			);
+			target = 770000001111111100000400 /* Axilo */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		5D58F18D2F1FE89600E08ACB /* SpeedReadShare */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5D58F19A2F1FE89600E08ACB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = SpeedReadShare; sourceTree = "<group>"; };
+		5D58F18D2F1FE89600E08ACB /* SpeedReadShare */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5D7201892F3662A9003D07D8 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 5D58F19A2F1FE89600E08ACB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = SpeedReadShare; sourceTree = "<group>"; };
 		5D58F1BB2F31361E00E08ACB /* AxiloWeb */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (5D58F1D32F31361E00E08ACB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = AxiloWeb; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -215,7 +222,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5D58F2D82F33AF9300E08ACB /* ZIPFoundation in Frameworks */,
+				5D7201852F366071003D07D8 /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,7 +230,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5D58F2DA2F33AFAC00E08ACB /* ZIPFoundation in Frameworks */,
+				5D7201832F365FED003D07D8 /* ZIPFoundation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -383,7 +390,7 @@
 			);
 			name = AxiloShare;
 			packageProductDependencies = (
-				5D58F2D72F33AF9300E08ACB /* ZIPFoundation */,
+				5D7201842F366071003D07D8 /* ZIPFoundation */,
 			);
 			productName = SpeedReadShare;
 			productReference = 5D58F18C2F1FE89600E08ACB /* AxiloShare.appex */;
@@ -406,7 +413,7 @@
 			);
 			name = AxiloWeb;
 			packageProductDependencies = (
-				5D58F2D92F33AFAC00E08ACB /* ZIPFoundation */,
+				5D7201822F365FED003D07D8 /* ZIPFoundation */,
 			);
 			productName = AxiloWeb;
 			productReference = 5D58F1BA2F31361E00E08ACB /* AxiloWeb.appex */;
@@ -463,7 +470,7 @@
 			);
 			mainGroup = 770000001111111100000300;
 			packageReferences = (
-				5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				5D7201812F365F39003D07D8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
 			);
 			productRefGroup = 770000001111111100000302 /* Products */;
 			projectDirPath = "";
@@ -967,6 +974,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		5D7201812F365F39003D07D8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
 		5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
@@ -978,14 +993,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		5D58F2D72F33AF9300E08ACB /* ZIPFoundation */ = {
+		5D7201822F365FED003D07D8 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			package = 5D7201812F365F39003D07D8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
-		5D58F2D92F33AFAC00E08ACB /* ZIPFoundation */ = {
+		5D7201842F366071003D07D8 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			package = 5D7201812F365F39003D07D8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
 		5DA37AD72F18286000135432 /* ZIPFoundation */ = {

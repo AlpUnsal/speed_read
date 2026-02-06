@@ -1,0 +1,18 @@
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/RSVPView.swift":
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/RSVPView.swiftconstvalues"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/RSVPView.dia"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/RSVPView.d"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/RSVPView.o"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/RSVPView.swiftdeps"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/SettingsView.swift":
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsView.d"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsView.swiftdeps"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsView.dia"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsView.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SettingsView.o"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/WordSearchView.swift":
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/WordSearchView.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/WordSearchView.o"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/WordSearchView.dia"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/WordSearchView.d"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/WordSearchView.swiftdeps"

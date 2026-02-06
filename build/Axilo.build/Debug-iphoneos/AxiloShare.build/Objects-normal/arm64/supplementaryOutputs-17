@@ -1,0 +1,18 @@
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/ParagraphView.swift":
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ParagraphView.swiftdeps"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ParagraphView.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ParagraphView.o"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ParagraphView.d"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/ParagraphView.dia"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Views/DocumentPicker.swift":
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/DocumentPicker.o"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/DocumentPicker.swiftdeps"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/DocumentPicker.d"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/DocumentPicker.dia"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/DocumentPicker.swiftconstvalues"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Models/NavigationPoint.swift":
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/NavigationPoint.o"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/NavigationPoint.swiftconstvalues"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/NavigationPoint.swiftdeps"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/NavigationPoint.dia"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/NavigationPoint.d"

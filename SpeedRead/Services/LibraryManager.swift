@@ -101,7 +101,13 @@ class LibraryManager: ObservableObject {
     ///   - name: Document name
     ///   - content: Parsed text content
     ///   - sourceBookmark: Pre-created bookmark data for thumbnail generation
-    func addDocument(name: String, content: String, sourceBookmark: Data? = nil) -> ReadingDocument {
+    /// Add a new document to the library or update existing one with same name
+    /// - Parameters:
+    ///   - name: Document name
+    ///   - content: Parsed text content
+    ///   - sourceBookmark: Pre-created bookmark data for thumbnail generation
+    ///   - navigationPoints: Optional list of navigation points (chapters/sections)
+    func addDocument(name: String, content: String, sourceBookmark: Data? = nil, navigationPoints: [NavigationPoint]? = nil) -> ReadingDocument {
         // Check if document with same name exists
         if let existingIndex = documents.firstIndex(where: { $0.name == name }) {
             // Update content but keep progress if content is the same
@@ -111,18 +117,22 @@ class LibraryManager: ObservableObject {
                 if let bookmark = sourceBookmark {
                     documents[existingIndex].sourceBookmark = bookmark
                 }
+                // Update navigation points if provided
+                if let navPoints = navigationPoints {
+                    documents[existingIndex].navigationPoints = navPoints
+                }
                 saveDocuments()
                 return documents[existingIndex]
             } else {
                 // Content changed, reset progress
-                let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark)
+                let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints)
                 documents[existingIndex] = newDoc
                 saveDocuments()
                 return newDoc
             }
         } else {
             // Add new document
-            let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark)
+            let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints)
             documents.insert(newDoc, at: 0)
             saveDocuments()
             return newDoc
@@ -161,9 +171,16 @@ class LibraryManager: ObservableObject {
     
     // MARK: - Persistence
     
+    // MARK: - Persistence
+    
     private var libraryFileURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
             .appendingPathComponent("library.json")
+    }
+    
+    private var inboxURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("Inbox")
     }
     
     private func saveDocuments() {
@@ -183,20 +200,92 @@ class LibraryManager: ObservableObject {
         if let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
             documents = decoded
+        } else {
+            // 2. Migration: Check UserDefaults (Fallback)
+            let defaults = UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+            if let data = defaults.data(forKey: storageKey),
+               let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
+                print("Migrating from UserDefaults to File Storage...")
+                documents = decoded
+                saveDocuments()
+            }
+        }
+        
+        // 3. Process Inbox (Merge new items from Share Extension)
+        processInbox()
+    }
+    
+    // MARK: - Inbox Pattern (Share Extension Support)
+    
+    /// Save a document to the Inbox folder (for Share Extension)
+    /// This avoids loading the entire library in memory-constrained extensions
+    /// STATIC version to avoid initializing the full library
+    static func saveToInbox(_ document: ReadingDocument) {
+        let appGroupIdentifier = "group.com.alpunsal.axilo"
+        guard let inbox = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?.appendingPathComponent("Inbox") else { return }
+        
+        do {
+            // Ensure Inbox exists
+            if !FileManager.default.fileExists(atPath: inbox.path) {
+                try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+            }
+            
+            let fileURL = inbox.appendingPathComponent("\(document.id.uuidString).json")
+            let data = try JSONEncoder().encode(document)
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+            print("Saved to Inbox: \(fileURL.lastPathComponent)")
+        } catch {
+            print("Error saving to Inbox: \(error)")
+        }
+    }
+    
+    /// Save a document to the Inbox folder (Instance method wrapper)
+    func saveToInbox(_ document: ReadingDocument) {
+        Self.saveToInbox(document)
+    }
+    
+    /// Merge files from Inbox into the main library
+    func processInbox() {
+        guard let inbox = inboxURL else { return }
+        
+        // Ensure Inbox exists
+        if !FileManager.default.fileExists(atPath: inbox.path) {
             return
         }
         
-        // 2. Migration: Check UserDefaults (Fallback)
-        // If file doesn't exist, check strict UserDefaults for migration
-        let defaults = UserDefaults(suiteName: appGroupIdentifier) ?? .standard
-        if let data = defaults.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
-            print("Migrating from UserDefaults to File Storage...")
-            documents = decoded
-            saveDocuments() // Write to file
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)
+            var newDocs: [ReadingDocument] = []
             
-            // Optional: Clear UserDefaults after successful migration
-            // defaults.removeObject(forKey: storageKey)
+            for url in fileURLs {
+                if url.pathExtension == "json" {
+                    do {
+                        let data = try Data(contentsOf: url)
+                        let doc = try JSONDecoder().decode(ReadingDocument.self, from: data)
+                        newDocs.append(doc)
+                        
+                        // Delete processed file
+                        try FileManager.default.removeItem(at: url)
+                        print("Processed and deleted inbox item: \(doc.name)")
+                    } catch {
+                        print("Failed to process inbox item at \(url): \(error)")
+                    }
+                }
+            }
+            
+            if !newDocs.isEmpty {
+                // Merge into main documents
+                // We add them to the top
+                for doc in newDocs {
+                    // Avoid duplicates by ID or Name
+                    if !documents.contains(where: { $0.id == doc.id || ($0.name == doc.name && $0.content == doc.content) }) {
+                        documents.insert(doc, at: 0)
+                    }
+                }
+                saveDocuments()
+            }
+        } catch {
+            print("Error processing Inbox: \(error)")
         }
     }
 }

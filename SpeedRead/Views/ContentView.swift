@@ -46,10 +46,44 @@ struct ContentView: View {
         .sheet(isPresented: $showDocumentPicker) {
             DocumentPicker { pickedDoc in
                 let fileName = pickedDoc.url.deletingPathExtension().lastPathComponent
-                let doc = libraryManager.addDocument(name: fileName, content: pickedDoc.content, sourceBookmark: pickedDoc.bookmark)
-                currentDocument = doc
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    isReading = true
+                
+                // If content is already present (small text files), use it.
+                if let availableContent = pickedDoc.content {
+                    let doc = libraryManager.addDocument(name: fileName, content: availableContent, sourceBookmark: pickedDoc.bookmark)
+                    currentDocument = doc
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isReading = true
+                    }
+                } else {
+                    // Content is nil, meaning we need to parse it asynchronously
+                    // Show some loading state or just process in background while sheet dismisses
+                    Task {
+                        // Offload parsing to background
+                        if let result = await Task.detached(priority: .userInitiated, operation: {
+                            return DocumentParser.parseWithNavigation(url: pickedDoc.url)
+                        }).value {
+                            
+                            // Back on Main Actor
+                            await MainActor.run {
+                                let doc = libraryManager.addDocument(
+                                    name: fileName, 
+                                    content: result.text, 
+                                    sourceBookmark: pickedDoc.bookmark,
+                                    navigationPoints: result.navigationPoints // Pass the sections!
+                                )
+                                currentDocument = doc
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    isReading = true
+                                }
+                            }
+                        } else {
+                             // Handle failure (e.g. show alert)
+                             print("Failed to parse document async")
+                        }
+                        
+                        // Clean up temp file
+                        try? FileManager.default.removeItem(at: pickedDoc.url)
+                    }
                 }
             }
         }

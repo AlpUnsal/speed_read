@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 /// Result of picking a document with all necessary data
 struct PickedDocument {
     let url: URL
-    let content: String
+    let content: String? // Changed to Optional
     let bookmark: Data?
 }
 
@@ -53,10 +53,22 @@ struct DocumentPicker: UIViewControllerRepresentable {
                 relativeTo: nil
             )
             
-            // Parse content WHILE we have access
-            guard let content = DocumentParser.parse(url: url) else { return }
+            // COPY file to temp directory so we can access it after this scope ends
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempURL = tempDir.appendingPathComponent(url.lastPathComponent)
             
-            onDocumentPicked(PickedDocument(url: url, content: content, bookmark: bookmark))
+            do {
+                if FileManager.default.fileExists(atPath: tempURL.path) {
+                    try FileManager.default.removeItem(at: tempURL)
+                }
+                try FileManager.default.copyItem(at: url, to: tempURL)
+                
+                // Return immediately with temp URL, NO PARSING yet
+                onDocumentPicked(PickedDocument(url: tempURL, content: nil, bookmark: bookmark))
+                
+            } catch {
+                print("Failed to copy file from picker: \(error)")
+            }
         }
     }
 }

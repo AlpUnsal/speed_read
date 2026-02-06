@@ -1,0 +1,24 @@
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/TextTokenizer.swift":
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/TextTokenizer.o"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/TextTokenizer.swiftdeps"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/TextTokenizer.swiftconstvalues"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/TextTokenizer.dia"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/TextTokenizer.d"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/HTMLHelper.swift":
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HTMLHelper.swiftdeps"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HTMLHelper.d"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HTMLHelper.o"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HTMLHelper.swiftconstvalues"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HTMLHelper.dia"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Services/HeadingDetector.swift":
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HeadingDetector.o"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HeadingDetector.dia"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HeadingDetector.d"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HeadingDetector.swiftconstvalues"
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/HeadingDetector.swiftdeps"
+"/Users/alp/Documents/coding/speed_read/SpeedRead/Resources/SampleText.swift":
+  swift-dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SampleText.swiftdeps"
+  dependencies: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SampleText.d"
+  const-values: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SampleText.swiftconstvalues"
+  object: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SampleText.o"
+  diagnostics: "/Users/alp/Documents/coding/speed_read/build/Axilo.build/Debug-iphoneos/AxiloShare.build/Objects-normal/arm64/SampleText.dia"
