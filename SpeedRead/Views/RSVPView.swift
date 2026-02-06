@@ -535,6 +535,9 @@ struct RSVPView: View {
             .ignoresSafeArea(.all, edges: [.horizontal])
         }
         .onAppear {
+            // Unlock orientation for RSVP view
+            OrientationManager.orientationLock = .allButUpsideDown
+            
             // Use async loading for large documents to avoid blocking UI
             viewModel.loadTextAsync(
                 text,
@@ -555,6 +558,8 @@ struct RSVPView: View {
             viewModel.wordsPerMinute = initialWPM
         }
         .onDisappear {
+            // Re-lock to portrait when leaving
+            OrientationManager.orientationLock = .portrait
             saveProgress()
         }
         .statusBarHidden(true)

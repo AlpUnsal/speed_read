@@ -92,6 +92,9 @@
 		5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */; };
 		5D7201832F365FED003D07D8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7201822F365FED003D07D8 /* ZIPFoundation */; };
 		5D7201852F366071003D07D8 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5D7201842F366071003D07D8 /* ZIPFoundation */; };
+		5D72018B2F366F13003D07D8 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D72018A2F366F12003D07D8 /* OrientationManager.swift */; };
+		5D72018C2F366F13003D07D8 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D72018A2F366F12003D07D8 /* OrientationManager.swift */; };
+		5D72018D2F366F13003D07D8 /* OrientationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D72018A2F366F12003D07D8 /* OrientationManager.swift */; };
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		5DA37AD82F18286000135432 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5DA37AD72F18286000135432 /* ZIPFoundation */; };
@@ -171,6 +174,7 @@
 		5D58F2CD2F33AEE000E08ACB /* NavigationPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPoint.swift; sourceTree = "<group>"; };
 		5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadingDetector.swift; sourceTree = "<group>"; };
 		5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFParsingService.swift; sourceTree = "<group>"; };
+		5D72018A2F366F12003D07D8 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
 		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParagraphView.swift; sourceTree = "<group>"; };
 		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		770000001111111100000011 /* SpeedReadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedReadApp.swift; sourceTree = "<group>"; };
@@ -349,6 +353,7 @@
 				5D58F2AB2F33ADDF00E08ACB /* WordSearcher.swift */,
 				5D58F2DB2F33B65500E08ACB /* HeadingDetector.swift */,
 				5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */,
+				5D72018A2F366F12003D07D8 /* OrientationManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -525,6 +530,7 @@
 				5D58F2BC2F33ADDF00E08ACB /* WordSearcher.swift in Sources */,
 				5D58F2BD2F33ADDF00E08ACB /* DOCXParser.swift in Sources */,
 				5D58F2BE2F33ADDF00E08ACB /* FontMetricsCache.swift in Sources */,
+				5D72018C2F366F13003D07D8 /* OrientationManager.swift in Sources */,
 				5D58F2BF2F33ADDF00E08ACB /* EPUBParser.swift in Sources */,
 				5D58F2C02F33ADDF00E08ACB /* SettingsManager.swift in Sources */,
 				5D58F2E12F3638A000E08ACB /* PDFParsingService.swift in Sources */,
@@ -559,6 +565,7 @@
 				5D58F2812F33ADB400E08ACB /* RSVPView.swift in Sources */,
 				5D58F2822F33ADB400E08ACB /* SettingsView.swift in Sources */,
 				5D58F2832F33ADB400E08ACB /* ChapterListView.swift in Sources */,
+				5D72018B2F366F13003D07D8 /* OrientationManager.swift in Sources */,
 				5D58F2852F33ADB400E08ACB /* WordDisplayView.swift in Sources */,
 				5D58F2862F33ADB400E08ACB /* VerticalSlider.swift in Sources */,
 				5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */,
@@ -599,6 +606,7 @@
 				5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */,
 				5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */,
 				770000001111111100000002 /* ContentView.swift in Sources */,
+				5D72018D2F366F13003D07D8 /* OrientationManager.swift in Sources */,
 				770000001111111100000003 /* RSVPView.swift in Sources */,
 				770000001111111100000004 /* WordDisplayView.swift in Sources */,
 				770000001111111100000005 /* VerticalSlider.swift in Sources */,
