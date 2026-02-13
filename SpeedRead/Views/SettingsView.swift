@@ -8,6 +8,7 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 // Section: Reader Mode
+                /*
                 Section(header: Text("Reader Mode")) {
                     Picker("Mode", selection: $settings.readerMode) {
                         ForEach(ReaderMode.allCases) { mode in
@@ -16,6 +17,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
                 }
+                */
                 
                 // Section 1: Visuals
                 Section(header: Text("Visuals")) {

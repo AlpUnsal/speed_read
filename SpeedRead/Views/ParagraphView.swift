@@ -86,7 +86,7 @@ struct ParagraphView: View {
                         }
                     }
                 }
-                .offset(y: dragOffset * 0.3) // Parallax/Dampening effect for smoothness
+                .offset(y: dragOffset * 0.15) // Subtle flow feedback (0.15x)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .contentShape(Rectangle()) // Hit test entire area
@@ -106,8 +106,8 @@ struct ParagraphView: View {
                         }
                         
                         // Calculate target weight based on drag distance
-                        // Sensitivity: 30 points per weight unit
-                        let sensitivity: CGFloat = 30.0
+                        // Sensitivity: 40 points per weight unit (quicker but controlled)
+                        let sensitivity: CGFloat = 40.0
                         let weightOffset = -value.translation.height / sensitivity
                         let targetWeight = baseWeight + weightOffset
                         
@@ -121,7 +121,20 @@ struct ParagraphView: View {
                         }
                         
                         // Update drag offset for visual feedback
-                        dragOffset = value.translation.height.truncatingRemainder(dividingBy: sensitivity)
+                        // Logic: Visual offset = (difference between target weight and current index's weight) * sensitivity
+                        // This ensures that when the index snaps, the visual offset also snaps exactly to 0 relative to that new index,
+                        // preventing any visual jump.
+                        let currentWeight = weightAt(index: clampedIndex)
+                        let diff = targetWeight - currentWeight
+                        
+                        // Inverse of the sensitivity calculation above
+                        // weightOffset = -translation / sensitivity
+                        // diff = targetWeight - currentWeight
+                        // We want offset in pixels such that: newIndex's position + offset = finger position
+                        
+                        // Actually, simpler: just track the remainder of weight relative to index
+                        // If targetWeight is 5.5 and index 5 is at 5.0, then we are 0.5 weights (25 pixels) past index 5.
+                        dragOffset = diff * sensitivity
                         
                         // Callback for "scroll started" if needed
                         onScroll?()
@@ -186,10 +199,10 @@ struct ParagraphView: View {
     /// Longer words get higher weights, making them "stick" longer
     private func scrollWeight(for word: String) -> CGFloat {
         switch word.count {
-        case 0...6: return 1.0      // Short words: normal speed
-        case 7...10: return 1.3     // Medium words: 30% slower
-        case 11...15: return 1.6    // Long words: 60% slower
-        default: return 2.0         // Very long words: 100% slower
+        case 0...6: return 1.5      // Short words: increased from 1.0 -> 1.5
+        case 7...10: return 1.8     // Medium words: increased from 1.3 -> 1.8
+        case 11...15: return 1.8    // Long words: kept similar (1.6 -> 1.8)
+        default: return 2.2         // Very long words: slight increase (2.0 -> 2.2)
         }
     }
     

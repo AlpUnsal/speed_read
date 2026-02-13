@@ -18,20 +18,5 @@ struct SampleText {
     With regular practice, you will find that you can read books, articles, and documents in a fraction of the time it used to take. This can be transformative for students, professionals, and anyone who wants to stay informed in our information-rich world.
     
     Now go ahead and try adjusting the speed with the slider on the right side of the screen. Find a pace that challenges you but still allows for comprehension. Happy speed reading!
-    
-    Test Cases for Pausing:
-    "Hello," he said.
-    "Wait!" she cried.
-    "Is it true?" asked John.
-    (This is a parenthetical statement.)
-    It was the end."
-    
-    Tokenizer Tests:
-    Word—connected (Em dash)
-    Word–connected (En dash)
-    Word--connected (Double hyphen)
-    Word...connected (Ellipsis dots)
-    Word…connected (Ellipsis char)
-    Either/Or (Slash - should stay connected)
     """
 }

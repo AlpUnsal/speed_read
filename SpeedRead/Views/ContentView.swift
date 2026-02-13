@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var isReading = false
     @State private var showContent = false
     
+    @AppStorage("hasAddedSample") private var hasAddedSample = false
+    
     // Most recent document for Resume feature
     private var mostRecentDocument: ReadingDocument? {
         libraryManager.documents.first
@@ -164,24 +166,28 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 24)
                 
+                
                 // Try Sample
-                Button(action: {
-                    let doc = libraryManager.addDocument(name: "Sample Text", content: SampleText.content)
-                    currentDocument = doc
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isReading = true
+                if !hasAddedSample {
+                    Button(action: {
+                        let doc = libraryManager.addDocument(name: "Sample Text", content: SampleText.content)
+                        currentDocument = doc
+                        hasAddedSample = true
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isReading = true
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "text.alignleft")
+                                .font(.system(size: 14, weight: .light))
+                            Text("Try Sample")
+                                .font(.custom("EBGaramond-Regular", size: 15))
+                        }
+                        .foregroundColor(settings.mutedTextColor)
                     }
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "text.alignleft")
-                            .font(.system(size: 14, weight: .light))
-                        Text("Try Sample")
-                            .font(.custom("EBGaramond-Regular", size: 15))
-                    }
-                    .foregroundColor(settings.mutedTextColor)
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.top, 4)
                 }
-                .buttonStyle(PlainButtonStyle())
-                .padding(.top, 4)
             }
             .opacity(showContent ? 1 : 0)
             .offset(y: showContent ? 0 : 20)
