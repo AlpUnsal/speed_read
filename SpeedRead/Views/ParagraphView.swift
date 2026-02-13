@@ -1,319 +1,226 @@
 import SwiftUI
 
-// MARK: - Scroll Offset Preference Key (kept for fallback)
-
-// MARK: - Item Position Preference Key
-private struct ItemMinYPreferenceKey: PreferenceKey {
-    static var defaultValue: [Int: CGFloat] = [:]
-    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
-        value.merge(nextValue()) { $1 }
-    }
-}
-
 @available(iOS 17.0, *)
 struct ParagraphView: View {
     @ObservedObject var viewModel: RSVPViewModel
     @ObservedObject var settings = SettingsManager.shared
     
-    // Callbacks
+    // Callbacks - mostly kept for signature compatibility, though logic is now internal
     var onTap: () -> Void
     var onWordTap: ((Int) -> Void)?
     var onScroll: (() -> Void)?
     var onSpeedScrub: ((CGFloat) -> Void)?
     var onSpeedScrubEnded: (() -> Void)?
     
-    // Scroll position tracking using iOS 17 API
-    @State private var scrollPosition: Int?
-    @StateObject private var scrollManager = ScrollManager()
-    @State private var lastScrollTime: Date = .distantPast
+    // Internal State for Drag Gesture
+    @State private var dragOffset: CGFloat = 0
+    @State private var baseIndex: Int = 0
+    @State private var baseWeight: CGFloat = 0
     
-    private let rowHeight: CGFloat = 65  // 50 height + 15 spacing
+    // Cumulative weights for variable scroll speed
+    @State private var cumulativeWeights: [CGFloat] = []
     
     var body: some View {
         GeometryReader { geometry in
-            let fontName = settings.fontName
-            let theme = settings.theme
-            let windowStart = viewModel.windowStartIndex
-            let focalPointY = geometry.size.height * 0.85
-            
-            // The highlighted word is the scroll position (during scroll) or viewModel.currentIndex
-            let highlightedIndex = scrollPosition ?? viewModel.currentIndex
-            
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 15) {
-                        ForEach(Array(viewModel.visibleLayoutData.enumerated()), id: \.offset) { displayIndex, layoutData in
-                            let actualIndex = windowStart + displayIndex
-                            let isCurrent = actualIndex == highlightedIndex
-                            
-                                WordRowView(
-                                    word: layoutData.word,
-                                    fontSize: layoutData.fontSize,
-                                    orpOffset: layoutData.orpOffset,
-                                    isCurrent: isCurrent,
-                                    fontName: fontName,
-                                    theme: theme,
-                                    screenWidth: geometry.size.width
-                                )
-                            .id(actualIndex)
-                            .onTapGesture {
-                                // Ignore taps within 200ms of scrolling to prevent
-                                // accidental taps when stopping a swipe
-                                guard Date().timeIntervalSince(lastScrollTime) > 0.2 else { return }
-                                viewModel.goToIndex(actualIndex)
-                                scrollPosition = actualIndex
-                            }
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear
-                                        .preference(
-                                            key: ItemMinYPreferenceKey.self,
-                                            value: [actualIndex: geo.frame(in: .named("scroll")).midY]
-                                        )
+            ZStack {
+                // Background - specific to theme
+                settings.backgroundColor
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        onTap()
+                    }
+                
+                // Wheel Visualization
+                VStack(spacing: 12) {
+                    // Show a range of words around the current index
+                    // -7 to +8 covers most screen heights comfortably
+                    ForEach(-7..<8, id: \.self) { offset in
+                        let wordIndex = viewModel.currentIndex + offset
+                        if wordIndex >= 0 && wordIndex < viewModel.totalWords {
+                            HStack(spacing: 40) {
+                                // Horizontal line for current position (left side)
+                                if offset == 0 {
+                                    Rectangle()
+                                        .fill(settings.textColor.opacity(0.3))
+                                        .frame(width: 40, height: 1)
+                                } else {
+                                    Spacer().frame(width: 40)
                                 }
-                            )
-                        }
-                    }
-                    // No scrollTargetLayout - allows free momentum scrolling
-                    .padding(.top, focalPointY)
-                    .padding(.bottom, geometry.size.height * 0.60) // Massive padding to ensure last item can reach focal point
-                    .background(ScrollViewConfigurator()) // Inject configurator to find parent ScrollView
-                }
-                .id(viewModel.scrollResetID) // Force full recreation on reset
-                .coordinateSpace(name: "scroll")
-                .onPreferenceChange(ItemMinYPreferenceKey.self) { itemPositions in
-                    // Rate Limit: Prevent multiple updates per frame (max 60fps)
-                    let now = Date().timeIntervalSince1970
-                    guard now - scrollManager.lastUpdateTime > 0.015 else { return }
-                    scrollManager.lastUpdateTime = now
-                    
-                    // 1. Momentum / Idle detection: Keep isUserScrolling true while updates are arriving
-                    if scrollManager.isUserScrolling {
-                        scrollManager.registerScrollActivity {
-                            if let pos = scrollPosition {
-                                viewModel.goToIndex(pos)
-                            }
-                        }
-                    }
-                    
-                    // Calculate which word is at the focal point based on item geometry
-                    // Update whenever manual mode is active (paused), covering both dragging AND momentum
-                    // AND ensure we aren't in the middle of a programmatic scroll (like reset)
-                    if !viewModel.isPlaying && !scrollManager.isProgrammaticScroll {
-                        // Current distance
-                        let currentDist = abs((itemPositions[scrollPosition ?? -1] ?? 10000) - focalPointY)
-                        
-                        // Find the item whose midY is closest to the focalPointY
-                        // Use Hystersis: prefer current item unless another is SIGNIFICANTLY closer
-                        let closest = itemPositions.min(by: { 
-                            abs($0.value - focalPointY) < abs($1.value - focalPointY)
-                        })
-                        
-                        if let match = closest {
-                            let newDist = abs(match.value - focalPointY)
-                            
-                            // HYSTERESIS: Only switch if new item is >10pts closer, or current is wildly off (>100pts)
-                            if newDist < currentDist - 10 || currentDist > 100 {
-                                let closestIndex = match.key
-                                let clampedIndex = max(0, min(closestIndex, viewModel.totalWords - 1))
                                 
-                                if scrollPosition != clampedIndex {
-                                    DispatchQueue.main.async {
-                                        scrollPosition = clampedIndex
-                                        
-                                        // Sync viewModel index without triggering scroll (since we are scrolling)
-                                        if viewModel.currentIndex != clampedIndex {
-                                            scrollManager.isSyncingIndex = true
-                                            // LIGHTWEIGHT UPDATE: Only change the highlight, don't rebuild the window
-                                            viewModel.updateIndexOnly(clampedIndex)
-                                            
-                                            Task { @MainActor in
-                                                // Small delay to ensure onChange fires before we reset flag
-                                                try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
-                                                scrollManager.isSyncingIndex = false
-                                            }
-                                        }
+                                // Build word with ORP highlighting
+                                HStack(spacing: 0) {
+                                    ForEach(Array(viewModel.word(at: wordIndex).enumerated()), id: \.offset) { charIndex, character in
+                                        let orpIndex = orpIndexFor(word: viewModel.word(at: wordIndex))
+                                        Text(String(character))
+                                            .font(.custom(settings.fontName, size: (offset == 0 ? 40 : 20) * settings.fontSizeMultiplier))
+                                            .foregroundColor(
+                                                offset == 0 && charIndex == orpIndex
+                                                    ? Color(hex: "E63946") // Red for ORP letter
+                                                    : (offset == 0 
+                                                        ? settings.textColor 
+                                                        : settings.textColor.opacity(0.4 - Double(abs(offset)) * 0.04))
+                                            )
+                                            .fontWeight(offset == 0 ? .medium : .regular)
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 5)
-                        .onChanged { _ in
-                            // Cancel idle timer on direct interaction
-                            scrollManager.startScrolling()
-                            onScroll?()
-                        }
-                        .onEnded { _ in
-                            // Record scroll end time for tap guard
-                            lastScrollTime = Date()
-                            // Momentum tracking in onPreferenceChange handles the reset now
-                            scrollManager.registerScrollActivity {
-                                if let pos = scrollPosition {
-                                    viewModel.goToIndex(pos)
+                                .offset(x: offset == 0 ? orpHorizontalOffset(for: viewModel.word(at: wordIndex), in: geometry) : 0)
+                                .multilineTextAlignment(.center)
+                                
+                                // Horizontal line for current position (right side)
+                                if offset == 0 {
+                                    Rectangle()
+                                        .fill(settings.textColor.opacity(0.3))
+                                        .frame(width: 40, height: 1)
+                                } else {
+                                    Spacer().frame(width: 40)
                                 }
                             }
-                        }
-                )
-                .onChange(of: viewModel.currentIndex) { _, newIndex in
-                    // When viewModel changes (playback), update scroll position
-                    // Only scroll if we aren't manually syncing from the scroll itself
-                    if !scrollManager.isUserScrolling && !scrollManager.isSyncingIndex {
-                        scrollManager.isProgrammaticScroll = true
-                        scrollPosition = newIndex
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            proxy.scrollTo(newIndex, anchor: UnitPoint(x: 0.5, y: 0.85))
-                        }
-                        
-                        // Re-enable tracking after scroll settles
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            scrollManager.isProgrammaticScroll = false
+                            .frame(maxWidth: .infinity)
+                            .onTapGesture {
+                                // Tap to jump to this word
+                                viewModel.goToIndex(wordIndex)
+                            }
+                        } else {
+                            // Spacer for out of bounds to keep center aligned
+                            Spacer().frame(height: offset == 0 ? 40 : 25)
                         }
                     }
                 }
-                .onAppear {
-                    scrollPosition = viewModel.currentIndex
-                    proxy.scrollTo(viewModel.currentIndex, anchor: UnitPoint(x: 0.5, y: 0.85))
-                }
+                .offset(y: dragOffset * 0.3) // Parallax/Dampening effect for smoothness
             }
-            // Gradient mask - fade only above, solid at bottom
-            .mask(
-                VStack(spacing: 0) {
-                    LinearGradient(
-                        gradient: Gradient(colors: [.clear, .black]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: geometry.size.height * 0.70)
-                    
-                    Rectangle()
-                        .fill(Color.black)
-                        .frame(height: geometry.size.height * 0.30)
-                }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .contentShape(Rectangle()) // Hit test entire area
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        // Initialize base weight on first drag
+                        if dragOffset == 0 {
+                            baseIndex = viewModel.currentIndex
+                            baseWeight = weightAt(index: baseIndex)
+                            
+                            // Build weights if not done yet
+                            if cumulativeWeights.isEmpty {
+                                buildCumulativeWeights()
+                            }
+                        }
+                        
+                        // Calculate target weight based on drag distance
+                        // Sensitivity: 30 points per weight unit
+                        let sensitivity: CGFloat = 30.0
+                        let weightOffset = -value.translation.height / sensitivity
+                        let targetWeight = baseWeight + weightOffset
+                        
+                        // Find index corresponding to target weight
+                        let newIndex = indexForWeight(targetWeight)
+                        
+                        // Update ViewModel live - use goToIndex to ensure progress saving
+                        let clampedIndex = max(0, min(newIndex, viewModel.totalWords - 1))
+                        if viewModel.currentIndex != clampedIndex {
+                            viewModel.goToIndex(clampedIndex)
+                        }
+                        
+                        // Update drag offset for visual feedback
+                        dragOffset = value.translation.height.truncatingRemainder(dividingBy: sensitivity)
+                        
+                        // Callback for "scroll started" if needed
+                        onScroll?()
+                    }
+                    .onEnded { _ in
+                        // Commit final position
+                        baseIndex = viewModel.currentIndex
+                        baseWeight = weightAt(index: baseIndex)
+                        dragOffset = 0
+                        
+                        // Callback for "scroll ended" if needed
+                        // Note: RSVPViewModel updates binding automatically
+                    }
             )
         }
-        .background(Color.clear)
-    }
-}
-
-// MARK: - Word Row View
-
-struct WordRowView: View, Equatable {
-    let word: String
-    let fontSize: CGFloat
-    let orpOffset: CGFloat
-    let isCurrent: Bool
-    let fontName: String
-    let theme: AppTheme
-    let screenWidth: CGFloat
-    
-    static func == (lhs: WordRowView, rhs: WordRowView) -> Bool {
-        lhs.word == rhs.word &&
-        lhs.fontSize == rhs.fontSize &&
-        lhs.isCurrent == rhs.isCurrent &&
-        lhs.fontName == rhs.fontName &&
-        lhs.theme == rhs.theme &&
-        lhs.screenWidth == rhs.screenWidth
     }
     
-    private var textColor: Color {
-        switch theme {
-        case .light: return Color(hex: "1A1A1A")
-        default: return Color(hex: "E5E5E5")
-        }
+    // MARK: - Helper Functions
+    
+    /// Returns the middle letter index for a word
+    /// For odd-length words: exact middle (e.g., "hello" = index 2)
+    /// For even-length words: left of middle (e.g., "test" = index 1)
+    private func orpIndexFor(word: String) -> Int {
+        guard word.count > 0 else { return 0 }
+        return (word.count - 1) / 2
     }
     
-    private var contextColor: Color {
-        switch theme {
-        case .light: return Color(hex: "1A1A1A").opacity(0.3)
-        default: return Color(hex: "E5E5E5").opacity(0.3)
-        }
-    }
-    
-    private let highlightColor = Color(hex: "E63946")
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            if isCurrent {
-                ForEach(Array(word.enumerated()), id: \.offset) { index, character in
-                    Text(String(character))
-                        .font(.custom(fontName, size: fontSize))
-                        .foregroundColor(orpIndex(for: word) == index ? highlightColor : textColor)
-                }
-            } else {
-                Text(word)
-                    .font(.custom(fontName, size: fontSize))
-                    .foregroundColor(contextColor)
-            }
-        }
-        .frame(height: 50)
-        .frame(width: screenWidth, alignment: .leading)
-        .offset(x: screenWidth * 0.18 - orpOffset)
-    }
-    
-    private func orpIndex(for word: String) -> Int {
-        word.count <= 1 ? 0 : 1
-    }
-}
-
-// MARK: - ScrollView Configurator
-// Accesses the underlying UIScrollView to set deceleration rate
-struct ScrollViewConfigurator: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.isHidden = true
-        view.isUserInteractionEnabled = false
-        return view
-    }
-    
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // Run on next runloop to ensure view hierarchy is built
-        DispatchQueue.main.async {
-            var current: UIView? = uiView
-            while let view = current {
-                if let scrollView = view as? UIScrollView {
-                    // Set to normal (higher friction than fast)
-                    scrollView.decelerationRate = .normal
-                    return
-                }
-                current = view.superview
-            }
-        }
-    }
-}
-
-// MARK: - Scroll Manager
-@MainActor
-class ScrollManager: ObservableObject {
-    @Published var isUserScrolling = false
-    
-    // Logic flags - not published to prevent view updates on logic changes
-    var isSyncingIndex = false
-    var isProgrammaticScroll = false
-    var lastUpdateTime: TimeInterval = 0
-    
-    private var idleTask: Task<Void, Never>?
-    
-    func registerScrollActivity(onStop: @escaping () -> Void) {
-        // Cancel previous task - this mutation does NOT trigger UI update
-        idleTask?.cancel()
+    /// Calculate horizontal offset to center the middle letter on screen
+    private func orpHorizontalOffset(for word: String, in geometry: GeometryProxy) -> CGFloat {
+        guard word.count > 1 else { return 0 }
         
-        // Start new task
-        idleTask = Task {
-            try? await Task.sleep(nanoseconds: 150_000_000) // 150ms
-            if !Task.isCancelled {
-                self.isUserScrolling = false
-                onStop()
+        let font = FontMetricsCache.shared.font(name: settings.fontName, size: 40 * settings.fontSizeMultiplier)
+        let middleIndex = orpIndexFor(word: word)
+        
+        // Calculate width up to and including the middle character
+        var offsetToMiddle: CGFloat = 0
+        for (index, char) in word.enumerated() {
+            let charWidth = String(char).size(withFont: font).width
+            if index < middleIndex {
+                offsetToMiddle += charWidth
+            } else if index == middleIndex {
+                offsetToMiddle += charWidth / 2
+                break
             }
+        }
+        
+        let wordWidth = word.size(withFont: font).width
+        
+        // Calculate offset to position middle letter at center
+        return (wordWidth / 2) - offsetToMiddle
+    }
+    
+    // MARK: - Weight-Based Scrolling
+    
+    /// Calculate scroll weight for a word based on its length
+    /// Longer words get higher weights, making them "stick" longer
+    private func scrollWeight(for word: String) -> CGFloat {
+        switch word.count {
+        case 0...6: return 1.0      // Short words: normal speed
+        case 7...10: return 1.3     // Medium words: 30% slower
+        case 11...15: return 1.6    // Long words: 60% slower
+        default: return 2.0         // Very long words: 100% slower
         }
     }
     
-    func startScrolling() {
-        idleTask?.cancel()
-        if !isUserScrolling {
-            isUserScrolling = true
+    /// Build cumulative weights array for all words
+    private func buildCumulativeWeights() {
+        var cumulative: CGFloat = 0
+        cumulativeWeights = viewModel.words.map { word in
+            cumulative += scrollWeight(for: word)
+            return cumulative
         }
+    }
+    
+    /// Get cumulative weight at a specific index
+    private func weightAt(index: Int) -> CGFloat {
+        guard index >= 0 && index < cumulativeWeights.count else { return 0 }
+        return cumulativeWeights[index]
+    }
+    
+    /// Find word index for a given cumulative weight using binary search
+    private func indexForWeight(_ targetWeight: CGFloat) -> Int {
+        guard !cumulativeWeights.isEmpty else { return 0 }
+        
+        // Clamp to valid weight range
+        let clampedWeight = max(0, min(targetWeight, cumulativeWeights.last ?? 0))
+        
+        // Binary search for the index
+        var left = 0
+        var right = cumulativeWeights.count - 1
+        
+        while left < right {
+            let mid = (left + right) / 2
+            if cumulativeWeights[mid] < clampedWeight {
+                left = mid + 1
+            } else {
+                right = mid
+            }
+        }
+        
+        return left
     }
 }

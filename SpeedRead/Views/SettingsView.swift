@@ -7,6 +7,16 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                // Section: Reader Mode
+                Section(header: Text("Reader Mode")) {
+                    Picker("Mode", selection: $settings.readerMode) {
+                        ForEach(ReaderMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
+                
                 // Section 1: Visuals
                 Section(header: Text("Visuals")) {
                     Picker("Theme", selection: $settings.theme) {

@@ -83,6 +83,8 @@ struct DocumentParser {
                 // logger.debug("DocumentParser: Saving to Inbox...")
                 LibraryManager.saveToInbox(newDoc)
                 
+                savedID = newDoc.id
+                
                 // logger.debug("DocumentParser: Saved UUID: \(newDoc.id)")
             } else {
                 // logger.error("DocumentParser: Parsing returned nil")

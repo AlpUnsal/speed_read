@@ -27,7 +27,7 @@ enum ReaderMode: String, CaseIterable, Identifiable {
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
     
-    @AppStorage("appTheme") var theme: AppTheme = .black // Defaulting to Black
+    @AppStorage("appTheme") var theme: AppTheme = .grey // Defaulting to Grey
     @AppStorage("readerMode") var readerMode: ReaderMode = .rsvp
     @AppStorage("fontName") var fontName: String = "EBGaramond-Regular"
     @AppStorage("fontSizeMultiplier") var fontSizeMultiplier: Double = 1.0
@@ -48,10 +48,7 @@ class SettingsManager: ObservableObject {
             fontSizeMultiplier = 1.25
         }
         
-        // Reset paragraph mode to rsvp (scroll view disabled)
-        if readerMode == .paragraph {
-            readerMode = .rsvp
-        }
+
     }
     
     // MARK: - Color Palette
