@@ -95,13 +95,14 @@ struct ParagraphView: View {
                     .onChanged { value in
                         // Initialize base weight on first drag
                         if dragOffset == 0 {
-                            baseIndex = viewModel.currentIndex
-                            baseWeight = weightAt(index: baseIndex)
-                            
                             // Build weights if not done yet
+                            // IMPORTANT: Must do this BEFORE calculating baseWeight
                             if cumulativeWeights.isEmpty {
                                 buildCumulativeWeights()
                             }
+                            
+                            baseIndex = viewModel.currentIndex
+                            baseWeight = weightAt(index: baseIndex)
                         }
                         
                         // Calculate target weight based on drag distance
@@ -136,6 +137,12 @@ struct ParagraphView: View {
                     }
             )
         }
+    .onAppear {
+        // Pre-calculate weights when view appears to avoid jank on first scroll
+        if cumulativeWeights.isEmpty {
+            buildCumulativeWeights()
+        }
+    }
     }
     
     // MARK: - Helper Functions
