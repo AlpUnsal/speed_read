@@ -129,42 +129,53 @@ struct RSVPView: View {
                     // Top bar with exit button, restart, and progress
                     // In paragraph mode: always visible
                     // In RSVP mode: fades when playing
-                    HStack {
-                        Button(action: { saveProgressAndExit() }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 18, weight: .light))
-                                .foregroundColor(Color(hex: "555555"))
-                                .padding(12)
-                        }
-                        
-                        Spacer()
-                        
-                        // Progress indicator
-                        Text("\(viewModel.currentIndex + 1) / \(viewModel.totalWords)")
+                    ZStack {
+                        // Progress indicator (Centered absolutely)
+                        Text("Section \(viewModel.chapterProgressPercentage)% · Document \(viewModel.bookProgressPercentage)%")
                             .font(.custom("EBGaramond-Regular", size: 14))
                             .foregroundColor(Color(hex: "555555"))
                         
-                        Spacer()
-                        
-                        // Settings button
-                        Button(action: {
-                            viewModel.pause()
-                            uiHideTimer?.invalidate()
-                            withAnimation { showUI = true }
-                            showSettings = true
-                        }) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 18, weight: .light))
-                                .foregroundColor(Color(hex: "555555"))
-                                .padding(12)
-                        }
-
-                        // Restart button
-                        Button(action: { viewModel.reset() }) {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.system(size: 18, weight: .light))
-                                .foregroundColor(Color(hex: "555555"))
-                                .padding(12)
+                        HStack {
+                            Button(action: { saveProgressAndExit() }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 18, weight: .light))
+                                    .foregroundColor(Color(hex: "555555"))
+                                    .padding(12)
+                            }
+                            
+                            Spacer()
+                            
+                            HStack(spacing: 0) {
+                                // Settings button
+                                Button(action: {
+                                    viewModel.pause()
+                                    uiHideTimer?.invalidate()
+                                    withAnimation { showUI = true }
+                                    showSettings = true
+                                }) {
+                                    Image(systemName: "gearshape")
+                                        .font(.system(size: 18, weight: .light))
+                                        .foregroundColor(Color(hex: "555555"))
+                                        .padding(12)
+                                }
+        
+                                // Restart button
+                                Button(action: { 
+                                    let currentIndex = viewModel.currentIndex
+                                    viewModel.reset() 
+                                    if currentIndex > 100 {
+                                        preScrubIndex = currentIndex
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            showReturnPrompt = true
+                                        }
+                                    }
+                                }) {
+                                    Image(systemName: "arrow.counterclockwise")
+                                        .font(.system(size: 18, weight: .light))
+                                        .foregroundColor(Color(hex: "555555"))
+                                        .padding(12)
+                                }
+                            }
                         }
                     }
                     .padding(.top, 8)

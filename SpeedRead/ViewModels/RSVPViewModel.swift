@@ -106,6 +106,42 @@ class RSVPViewModel: ObservableObject {
         return index == navigationPoints.count - 1
     }
     
+    // Percentage formatting
+    var bookProgressPercentage: Int {
+        if totalWords == 0 { return 0 }
+        return Int((Double(currentIndex + 1) / Double(totalWords)) * 100)
+    }
+    
+    var chapterProgressPercentage: Int {
+        let defaultPercent = bookProgressPercentage
+        
+        guard !navigationPoints.isEmpty, let current = currentNavigationPoint else {
+            return defaultPercent // Fallback if no true chapters
+        }
+        
+        // Find the index of the current navigation point
+        if let currentIdx = navigationPoints.firstIndex(where: { $0.id == current.id }) {
+            let chapterStart = current.wordStartIndex
+            var chapterEnd = totalWords
+            
+            // If there's a next point, the chapter ends right before it
+            if currentIdx < navigationPoints.count - 1 {
+                chapterEnd = navigationPoints[currentIdx + 1].wordStartIndex
+            }
+            
+            let chapterLength = chapterEnd - chapterStart
+            if chapterLength <= 0 { return 100 } // Safety
+            
+            let wordsReadInChapter = (currentIndex + 1) - chapterStart
+            
+            // Calculate percentage and clamp between 0 and 100
+            let percentage = Int((Double(wordsReadInChapter) / Double(chapterLength)) * 100)
+            return max(0, min(100, percentage))
+        }
+        
+        return defaultPercent
+    }
+    
     // MARK: - Debug
     let id = UUID()
     
