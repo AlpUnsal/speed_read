@@ -11,7 +11,7 @@ struct WordDisplayView: View {
     // Colors
     private var textColor: Color {
         switch theme {
-        case .light: return Color(hex: "1A1A1A")
+        case .cream, .white: return Color(hex: "1A1A1A")
         default: return Color(hex: "E5E5E5")
         }
     }
@@ -41,7 +41,7 @@ struct WordDisplayView: View {
         }
         .opacity((animate && !isVisible) ? 0 : 1)
         .scaleEffect((animate && !isVisible) ? 0.9 : 1)
-        .onChange(of: word) { _ in
+        .onChange(of: word) { _, _ in
             if animate {
                 // Reset and trigger animation
                 isVisible = false

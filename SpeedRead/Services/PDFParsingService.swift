@@ -281,7 +281,7 @@ struct PDFParsingService {
             let endIndex: Int
             if index + 1 < sortedSections.count {
                 let nextSection = sortedSections[index + 1]
-                var nextOffset = nextSection.wordOffsetOnPage
+                let nextOffset = nextSection.wordOffsetOnPage
                 
                 // Calculate next true index
                  if nextSection.pageIndex < pageWordCounts.count {

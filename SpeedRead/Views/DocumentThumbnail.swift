@@ -12,7 +12,8 @@ struct DocumentThumbnail: View {
     private var coverColor: Color {
         let hash = abs(document.name.hashValue)
         let hue = Double(hash % 360) / 360.0
-        return Color(hue: hue, saturation: 0.25, brightness: settings.theme == .light ? 0.85 : 0.25)
+        let isLight = (settings.theme == .cream || settings.theme == .white)
+        return Color(hue: hue, saturation: 0.25, brightness: isLight ? 0.85 : 0.25)
     }
     
     // Get first sentence or fragment for display

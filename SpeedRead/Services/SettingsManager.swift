@@ -4,7 +4,8 @@ import Combine
 enum AppTheme: String, CaseIterable, Identifiable {
     case black = "Black" // Previously typical dark mode
     case grey = "Grey"   // Existing dark mode logic
-    case light = "Light" // Cream
+    case cream = "Cream"
+    case white = "White"
     
     var id: String { rawValue }
     
@@ -12,7 +13,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
         switch self {
         case .black: return .dark
         case .grey: return .dark
-        case .light: return .light
+        case .cream: return .light
+        case .white: return .light
         }
     }
 }
@@ -47,8 +49,6 @@ class SettingsManager: ObservableObject {
         if fontSizeMultiplier > 1.25 {
             fontSizeMultiplier = 1.25
         }
-        
-
     }
     
     // MARK: - Color Palette
@@ -59,29 +59,27 @@ class SettingsManager: ObservableObject {
             return Color.black // Pure Black
         case .grey:
             return Color(hex: "1A1A1A") // Dark Grey
-        case .light:
-            return Color(hex: "FAF9F6") // Cream
+        case .cream:
+            return Color(hex: "FDFBD4") // Cream (User requested)
+        case .white:
+            return Color(hex: "FFFFFF") // Pure White
         }
     }
     
     var textColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "E5E5E5") // Light Grey for contrast
-        case .grey:
-            return Color(hex: "E5E5E5") // Light Grey for contrast
-        case .light:
+        case .cream, .white:
             return Color(hex: "1A1A1A") // Dark Grey for contrast
         }
     }
     
     var secondaryTextColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "888888")
-        case .grey:
-            return Color(hex: "888888")
-        case .light:
+        case .cream, .white:
             return Color(hex: "666666")
         }
     }
@@ -102,8 +100,10 @@ class SettingsManager: ObservableObject {
             return Color(hex: "151515")
         case .grey:
             return Color(hex: "232323")
-        case .light:
-            return Color(hex: "FFFFFF")
+        case .cream:
+            return Color(hex: "FFFFFF") // White cards on cream look good
+        case .white:
+            return Color(hex: "F9F9F9") // Slightly off-white cards on white background
         }
     }
     
@@ -113,29 +113,25 @@ class SettingsManager: ObservableObject {
             return Color(hex: "2A2A2A")
         case .grey:
             return Color(hex: "333333")
-        case .light:
+        case .cream, .white:
             return Color(hex: "E0E0E0")
         }
     }
     
     var mutedTextColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "555555")
-        case .grey:
-            return Color(hex: "555555")
-        case .light:
+        case .cream, .white:
             return Color(hex: "999999")
         }
     }
     
     var progressBarBackgroundColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "2A2A2A")
-        case .grey:
-            return Color(hex: "2A2A2A")
-        case .light:
+        case .cream, .white:
             return Color(hex: "E5E5E5")
         }
     }
@@ -146,29 +142,25 @@ class SettingsManager: ObservableObject {
             return Color(hex: "1A1A1A")
         case .grey:
             return Color(hex: "2A2A2A")
-        case .light:
+        case .cream, .white:
             return Color(hex: "F5F5F5")
         }
     }
     
     var primaryButtonBackgroundColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "E5E5E5")
-        case .grey:
-            return Color(hex: "E5E5E5")
-        case .light:
+        case .cream, .white:
             return Color(hex: "1A1A1A")
         }
     }
     
     var primaryButtonTextColor: Color {
         switch theme {
-        case .black:
+        case .black, .grey:
             return Color(hex: "1A1A1A")
-        case .grey:
-            return Color(hex: "1A1A1A")
-        case .light:
+        case .cream, .white:
             return Color(hex: "FFFFFF")
         }
     }

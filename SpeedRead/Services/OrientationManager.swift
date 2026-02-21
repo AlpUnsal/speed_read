@@ -21,7 +21,9 @@ class OrientationManager: ObservableObject {
             }
             
             // For good measure, force existing UI view controllers to update
-            UIViewController.attemptRotationToDeviceOrientation()
+            if let windowScene = sharedApp.connectedScenes.first as? UIWindowScene {
+                windowScene.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            }
         }
     }
 }

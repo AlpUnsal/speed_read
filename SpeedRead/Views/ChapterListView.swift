@@ -72,21 +72,21 @@ struct ChapterListView: View {
     
     private var mutedTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "999999")
+        case .cream, .white: return Color(hex: "999999")
         default: return Color(hex: "555555")
         }
     }
     
     private var secondaryTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "666666")
+        case .cream, .white: return Color(hex: "666666")
         default: return Color(hex: "888888")
         }
     }
     
     private var dividerColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "E0E0E0")
+        case .cream, .white: return Color(hex: "E0E0E0")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -188,21 +188,21 @@ private struct ChapterRow: View {
     
     private var secondaryTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "444444")
+        case .cream, .white: return Color(hex: "444444")
         default: return Color(hex: "AAAAAA")
         }
     }
     
     private var tertiaryTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "888888")
+        case .cream, .white: return Color(hex: "888888")
         default: return Color(hex: "666666")
         }
     }
     
     private var trackColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "E0E0E0")
+        case .cream, .white: return Color(hex: "E0E0E0")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -215,7 +215,7 @@ private struct ChapterRow: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "252525")
-        case .light: return Color(hex: "F5F5F5")
+        case .cream, .white: return Color(hex: "F5F5F5")
         }
     }
 }

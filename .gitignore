@@ -44,3 +44,4 @@ fastlane/test_output
 
 # Other
 *.xcuserstate
+AGENTS.md

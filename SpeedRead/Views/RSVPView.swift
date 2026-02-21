@@ -52,6 +52,8 @@ struct RSVPView: View {
     @State private var scrubProgress: Double = 0
     @State private var scrubIndex: Int = 0
     @State private var wasPlayingBeforeScrub = false
+    @State private var preScrubIndex: Int? = nil
+    @State private var showReturnPrompt = false
     
     var body: some View {
         GeometryReader { mainGeo in
@@ -116,6 +118,10 @@ struct RSVPView: View {
                         fontName: settings.fontName,
                         theme: settings.theme
                     )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        handlePlayPause()
+                    }
                 }
                 
                 // UI Overlay
@@ -141,7 +147,12 @@ struct RSVPView: View {
                         Spacer()
                         
                         // Settings button
-                        Button(action: { showSettings = true }) {
+                        Button(action: {
+                            viewModel.pause()
+                            uiHideTimer?.invalidate()
+                            withAnimation { showUI = true }
+                            showSettings = true
+                        }) {
                             Image(systemName: "gearshape")
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(Color(hex: "555555"))
@@ -163,12 +174,17 @@ struct RSVPView: View {
                     
                     Spacer()
                     
-                    // Bottom controls - [Sections] [◀15] [Play/Pause] [15▶] [Search]
+                    // Bottom controls - [Sections] [◀10] [Play/Pause] [10▶] [Search]
                     // Only show in RSVP mode (not paragraph mode)
                     if settings.readerMode != .paragraph {
                         HStack(spacing: 24) {
                             // Sections button (opens chapter/heading list)
-                            Button(action: { showChapterList = true }) {
+                            Button(action: {
+                                viewModel.pause()
+                                uiHideTimer?.invalidate()
+                                withAnimation { showUI = true }
+                                showChapterList = true
+                            }) {
                                 Image(systemName: "list.bullet")
                                     .font(.system(size: 18, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
@@ -177,9 +193,12 @@ struct RSVPView: View {
                             }
                             .buttonStyle(ScaleButtonStyle())
                             
-                            // Skip backward 15 words
-                            Button(action: { viewModel.skipBackward(by: 15) }) {
-                                Image(systemName: "gobackward.15")
+                            // Skip backward 10 seconds
+                            Button(action: {
+                                let skipCount = Int((viewModel.wordsPerMinute / 60.0) * 10.0)
+                                viewModel.skipBackward(by: max(1, skipCount))
+                            }) {
+                                Image(systemName: "gobackward.10")
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(Color(hex: "555555"))
                                 .frame(width: 44, height: 44)
@@ -202,9 +221,12 @@ struct RSVPView: View {
                             }
                             .buttonStyle(ScaleButtonStyle())
                             
-                            // Skip forward 15 words
-                            Button(action: { viewModel.skipForward(by: 15) }) {
-                                Image(systemName: "goforward.15")
+                            // Skip forward 10 seconds
+                            Button(action: {
+                                let skipCount = Int((viewModel.wordsPerMinute / 60.0) * 10.0)
+                                viewModel.skipForward(by: max(1, skipCount))
+                            }) {
+                                Image(systemName: "goforward.10")
                                     .font(.system(size: 18, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
                                     .frame(width: 44, height: 44)
@@ -213,7 +235,12 @@ struct RSVPView: View {
                             .buttonStyle(ScaleButtonStyle())
                             
                             // Search button
-                            Button(action: { showSearch = true }) {
+                            Button(action: {
+                                viewModel.pause()
+                                uiHideTimer?.invalidate()
+                                withAnimation { showUI = true }
+                                showSearch = true
+                            }) {
                                 Image(systemName: "magnifyingglass")
                                     .font(.system(size: 18, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
@@ -230,7 +257,12 @@ struct RSVPView: View {
                         // Controls for paragraph mode - [Sections] [Search]
                         HStack(spacing: 40) {
                             // Sections button
-                            Button(action: { showChapterList = true }) {
+                            Button(action: {
+                                viewModel.pause()
+                                uiHideTimer?.invalidate()
+                                withAnimation { showUI = true }
+                                showChapterList = true
+                            }) {
                                 Image(systemName: "list.bullet")
                                     .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
@@ -240,7 +272,12 @@ struct RSVPView: View {
                             .buttonStyle(ScaleButtonStyle())
                             
                             // Search button
-                            Button(action: { showSearch = true }) {
+                            Button(action: {
+                                viewModel.pause()
+                                uiHideTimer?.invalidate()
+                                withAnimation { showUI = true }
+                                showSearch = true
+                            }) {
                                 Image(systemName: "magnifyingglass")
                                     .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
@@ -304,6 +341,9 @@ struct RSVPView: View {
                                     }
                                 }
                         )
+                        .onTapGesture {
+                            handlePlayPause()
+                        }
                     } // End if not paragraph mode (gesture zone)
                     
                     // WPM feedback display (shows during/after swipe)
@@ -391,6 +431,9 @@ struct RSVPView: View {
                                         peekDragOffset = 0
                                     }
                             )
+                            .onTapGesture {
+                                handlePlayPause()
+                            }
                     }
                 }
                 
@@ -404,7 +447,8 @@ struct RSVPView: View {
                         
                         // Word list centered on peekIndex - tap word to jump
                         VStack(spacing: 12) {
-                            ForEach(-7..<8, id: \.self) { offset in
+                            let halfCount = isLandscape ? 3 : 7
+                            ForEach(-halfCount...halfCount, id: \.self) { offset in
                                 let wordIndex = peekIndex + offset
                                 if wordIndex >= 0 && wordIndex < viewModel.totalWords {
                                     HStack(spacing: 40) {
@@ -435,6 +479,7 @@ struct RSVPView: View {
                                                         .fontWeight(offset == 0 ? .medium : .regular)
                                                 }
                                             }
+                                            .fixedSize(horizontal: true, vertical: false)
                                             .offset(x: offset == 0 ? calculateORPOffset(for: viewModel.word(at: wordIndex), in: geo) : 0)
                                             .multilineTextAlignment(.center)
                                             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -555,6 +600,7 @@ struct RSVPView: View {
                                                 // 2. Start scrubbing
                                                 isScrubbing = true
                                                 wasPlayingBeforeScrub = viewModel.isPlaying
+                                                preScrubIndex = viewModel.currentIndex
                                                 viewModel.pause()
                                                 let generator = UIImpactFeedbackGenerator(style: .light)
                                                 generator.impactOccurred()
@@ -576,6 +622,15 @@ struct RSVPView: View {
                                             if isScrubbing {
                                                 isScrubbing = false
                                                 viewModel.goToIndex(scrubIndex)
+                                                
+                                                if let prevIndex = preScrubIndex, abs(scrubIndex - prevIndex) > 100 {
+                                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                        showReturnPrompt = true
+                                                    }
+                                                } else {
+                                                    showReturnPrompt = false
+                                                }
+                                                
                                                 let generator = UIImpactFeedbackGenerator(style: .medium)
                                                 generator.impactOccurred()
                                             }
@@ -589,6 +644,61 @@ struct RSVPView: View {
                 }
                 .padding(.bottom, 8) // Reduced from 24 to 8 for a lower profile (closer to bottom)
                 .ignoresSafeArea(.all, edges: [.horizontal])
+                .opacity(showUI ? 1.0 : 0.0)
+                .animation(.easeOut(duration: 0.5), value: showUI)
+                .allowsHitTesting(showUI)
+                
+                // Return Prompt Overlay
+                if showReturnPrompt {
+                    VStack {
+                        Spacer()
+                        Button(action: {
+                            if let idx = preScrubIndex {
+                                viewModel.goToIndex(idx)
+                                preScrubIndex = nil
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    showReturnPrompt = false
+                                }
+                            }
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Return to position")
+                                    .font(.custom("EBGaramond-Medium", size: 16))
+                            }
+                            .foregroundColor(settings.textColor)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(settings.backgroundColor)
+                                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(settings.cardBorderColor, lineWidth: 0.5)
+                            )
+                        }
+                        .padding(.bottom, 80) // Position above the progress bar and buttons
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    .zIndex(100)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                viewModel.pause()
+                uiHideTimer?.invalidate()
+                withAnimation { showUI = true }
+                
+                // Force an immediate synchronous save when backgrounding
+                saveProgress()
+                LibraryManager.shared.forceSave()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                // Redundancy: force save again if needed
+                saveProgress()
+                LibraryManager.shared.forceSave()
             }
             .onAppear {
                 // Unlock orientation for RSVP view
@@ -617,6 +727,17 @@ struct RSVPView: View {
                     }
                 }
                 viewModel.wordsPerMinute = initialWPM
+                
+                // Bind the periodic progress updates from the view model
+                viewModel.onProgressUpdate = { index, wpm in
+                    if let docId = documentId {
+                        LibraryManager.shared.updateProgress(
+                            for: docId,
+                            wordIndex: index,
+                            wpm: wpm
+                        )
+                    }
+                }
             }
             .onDisappear {
                 // Re-lock to portrait when leaving
@@ -679,6 +800,14 @@ struct RSVPView: View {
     
     private func handlePlayPause() {
         viewModel.togglePlayPause()
+        
+        // Hide return prompt when playing
+        if viewModel.isPlaying && showReturnPrompt {
+            withAnimation(.easeOut(duration: 0.3)) {
+                showReturnPrompt = false
+            }
+            preScrubIndex = nil
+        }
         
         // Cancel any existing timer
         uiHideTimer?.invalidate()

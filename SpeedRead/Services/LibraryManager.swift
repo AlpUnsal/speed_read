@@ -88,6 +88,10 @@ class LibraryManager: ObservableObject {
     private let storageKey = "SpeedReadLibrary"
     private let appGroupIdentifier = "group.com.alpunsal.axilo"
     
+    // Background saving queue & debouncer
+    private let saveQueue = DispatchQueue(label: "com.alpunsal.axilo.librarySaveQueue", qos: .background)
+    private var saveWorkItem: DispatchWorkItem?
+    
     private init() {
         refresh()
     }
@@ -142,10 +146,14 @@ class LibraryManager: ObservableObject {
     /// Update reading progress for a document
     func updateProgress(for documentId: UUID, wordIndex: Int, wpm: Double) {
         if let index = documents.firstIndex(where: { $0.id == documentId }) {
-            documents[index].currentWordIndex = wordIndex
-            documents[index].wordsPerMinute = wpm
-            documents[index].lastReadDate = Date()
-            saveDocuments()
+            // Only save if progress actually changed
+            let hasChanged = documents[index].currentWordIndex != wordIndex || documents[index].wordsPerMinute != wpm
+            if hasChanged {
+                documents[index].currentWordIndex = wordIndex
+                documents[index].wordsPerMinute = wpm
+                documents[index].lastReadDate = Date()
+                saveDocumentsAsync() // Use debounced async save
+            }
         }
     }
     
@@ -188,9 +196,42 @@ class LibraryManager: ObservableObject {
         do {
             let data = try JSONEncoder().encode(documents)
             try data.write(to: url, options: [.atomic, .completeFileProtection])
+            print("Library synchronously saved to disk.")
         } catch {
             print("Error saving library: \(error)")
         }
+    }
+    
+    /// Debounced asynchronous save to prevent UI freezes
+    func saveDocumentsAsync() {
+        // Cancel previous pending save
+        saveWorkItem?.cancel()
+        
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            
+            // Create a discrete snapshot of the documents array to save
+            let documentsSnapshot = self.documents
+            
+            guard let url = self.libraryFileURL else { return }
+            do {
+                let data = try JSONEncoder().encode(documentsSnapshot)
+                try data.write(to: url, options: [.atomic, .completeFileProtection])
+                print("Library asynchronously saved to disk.")
+            } catch {
+                print("Error async saving library: \(error)")
+            }
+        }
+        
+        saveWorkItem = workItem
+        // Debounce by 2 seconds
+        saveQueue.asyncAfter(deadline: .now() + 2.0, execute: workItem)
+    }
+    
+    /// Force an immediate synchronous save (vital for app termination/backgrounding)
+    func forceSave() {
+        saveWorkItem?.cancel()
+        saveDocuments()
     }
     
     public func refresh() {

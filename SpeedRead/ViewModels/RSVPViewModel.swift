@@ -12,6 +12,9 @@ class RSVPViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var scrollResetID = UUID()
     
+    // Callback to persist progress externally (e.g. to LibraryManager)
+    var onProgressUpdate: ((Int, Double) -> Void)?
+    
     // MARK: - Navigation Properties
     @Published var navigationPoints: [NavigationPoint] = []
     @Published var currentNavigationPoint: NavigationPoint?
@@ -236,9 +239,15 @@ class RSVPViewModel: ObservableObject {
     }
     
     func pause() {
+        let wasPlaying = isPlaying
         isPlaying = false
         timer?.invalidate()
         timer = nil
+        
+        // Trigger save when paused
+        if wasPlaying {
+            onProgressUpdate?(currentIndex, wordsPerMinute)
+        }
     }
     
     func togglePlayPause() {
@@ -256,6 +265,7 @@ class RSVPViewModel: ObservableObject {
         scrollResetID = UUID() // Force ScrollView reconstruction
         updateProgress()
         updateWindow(around: 0)
+        onProgressUpdate?(currentIndex, wordsPerMinute)
     }
     
     func skipForward(by count: Int = 10) {
@@ -316,6 +326,11 @@ class RSVPViewModel: ObservableObject {
             guard let self = self else { return }
             self.currentIndex += 1
             self.updateProgress()
+            
+            // Checkpoint every 50 words
+            if self.currentIndex % 50 == 0 {
+                self.onProgressUpdate?(self.currentIndex, self.wordsPerMinute)
+            }
             
             // Update window periodically during playback
             if self.currentIndex % 50 == 0 {

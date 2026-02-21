@@ -20,7 +20,7 @@ class ThumbnailManager {
     
     private init() {}
     
-    /// Get thumbnail for a document, generating if needed
+    /// Get thumbnail for a document, generating if needed (sync — cache + PDF only)
     func thumbnail(for documentId: UUID, sourceBookmark: Data?) -> UIImage? {
         let cacheKey = documentId.uuidString as NSString
         
@@ -36,34 +36,25 @@ class ThumbnailManager {
             return diskImage
         }
         
-        // Generate from source if available
-        if let bookmark = sourceBookmark,
-           let image = generateThumbnail(from: bookmark, documentId: documentId) {
-            cache.setObject(image, forKey: cacheKey)
-            saveToDisk(image: image, documentId: documentId)
-            return image
+        // Generate from source if available (sync path for PDFs only)
+        if let bookmark = sourceBookmark {
+            var isStale = false
+            guard let url = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale),
+                  url.startAccessingSecurityScopedResource() else {
+                return nil
+            }
+            defer { url.stopAccessingSecurityScopedResource() }
+            
+            if url.pathExtension.lowercased() == "pdf" {
+                if let image = generatePDFThumbnail(url: url) {
+                    cache.setObject(image, forKey: cacheKey)
+                    saveToDisk(image: image, documentId: documentId)
+                    return image
+                }
+            }
         }
         
         return nil
-    }
-    
-    /// Generate thumbnail from bookmark data
-    private func generateThumbnail(from bookmark: Data, documentId: UUID) -> UIImage? {
-        var isStale = false
-        guard let url = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale),
-              url.startAccessingSecurityScopedResource() else {
-            return nil
-        }
-        defer { url.stopAccessingSecurityScopedResource() }
-        
-        let fileExtension = url.pathExtension.lowercased()
-        
-        switch fileExtension {
-        case "pdf":
-            return generatePDFThumbnail(url: url)
-        default:
-            return generateQuickLookThumbnail(url: url)
-        }
     }
     
     /// Generate thumbnail from PDF using PDFKit
@@ -91,27 +82,6 @@ class ThumbnailManager {
         return image
     }
     
-    /// Generate thumbnail using QuickLook (for other file types)
-    private func generateQuickLookThumbnail(url: URL) -> UIImage? {
-        let request = QLThumbnailGenerator.Request(
-            fileAt: url,
-            size: thumbnailSize,
-            scale: UIScreen.main.scale,
-            representationTypes: .thumbnail
-        )
-        
-        var resultImage: UIImage?
-        let semaphore = DispatchSemaphore(value: 0)
-        
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, error in
-            resultImage = representation?.uiImage
-            semaphore.signal()
-        }
-        
-        semaphore.wait()
-        return resultImage
-    }
-    
     /// Save thumbnail to disk cache
     private func saveToDisk(image: UIImage, documentId: UUID) {
         let diskPath = thumbnailDirectory.appendingPathComponent("\(documentId.uuidString).jpg")
@@ -129,10 +99,48 @@ class ThumbnailManager {
         try? fileManager.removeItem(at: diskPath)
     }
     
-    /// Generate thumbnail asynchronously
+    /// Generate thumbnail asynchronously (non-blocking)
     func generateThumbnailAsync(for documentId: UUID, sourceBookmark: Data?, completion: @escaping (UIImage?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let image = self?.thumbnail(for: documentId, sourceBookmark: sourceBookmark)
+        // First try sync path (memory/disk cache + PDF)
+        if let image = thumbnail(for: documentId, sourceBookmark: sourceBookmark) {
+            completion(image)
+            return
+        }
+        
+        // For non-PDF files, use QuickLook with callback (no semaphore, no blocking)
+        guard let bookmark = sourceBookmark else {
+            completion(nil)
+            return
+        }
+        
+        var isStale = false
+        guard let url = try? URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale),
+              url.startAccessingSecurityScopedResource() else {
+            completion(nil)
+            return
+        }
+        
+        // Capture screen scale on current thread (likely main)
+        let screenScale = UIScreen.main.scale
+        
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: thumbnailSize,
+            scale: screenScale,
+            representationTypes: .thumbnail
+        )
+        
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { [weak self] representation, error in
+            url.stopAccessingSecurityScopedResource()
+            
+            let image = representation?.uiImage
+            
+            if let image = image, let self = self {
+                let cacheKey = documentId.uuidString as NSString
+                self.cache.setObject(image, forKey: cacheKey)
+                self.saveToDisk(image: image, documentId: documentId)
+            }
+            
             DispatchQueue.main.async {
                 completion(image)
             }

@@ -34,7 +34,7 @@ struct WordSearchView: View {
                             .focused($isSearchFocused)
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.never)
-                            .onChange(of: searchText) { newValue in
+                            .onChange(of: searchText) { _, newValue in
                                 viewModel.search(query: newValue)
                             }
                         
@@ -157,14 +157,14 @@ struct WordSearchView: View {
     
     private var mutedTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "999999")
+        case .cream, .white: return Color(hex: "999999")
         default: return Color(hex: "555555")
         }
     }
     
     private var secondaryTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "666666")
+        case .cream, .white: return Color(hex: "666666")
         default: return Color(hex: "888888")
         }
     }
@@ -173,7 +173,7 @@ struct WordSearchView: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "2A2A2A")
-        case .light: return Color(hex: "F0F0F0")
+        case .cream, .white: return Color(hex: "F0F0F0")
         }
     }
 }
@@ -237,7 +237,7 @@ private struct SearchResultRow: View {
     
     private var secondaryTextColor: Color {
         switch settings.theme {
-        case .light: return Color(hex: "666666")
+        case .cream, .white: return Color(hex: "666666")
         default: return Color(hex: "AAAAAA")
         }
     }
@@ -246,7 +246,7 @@ private struct SearchResultRow: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "2A2A2A")
-        case .light: return Color(hex: "EEEEEE")
+        case .cream, .white: return Color(hex: "EEEEEE")
         }
     }
 }

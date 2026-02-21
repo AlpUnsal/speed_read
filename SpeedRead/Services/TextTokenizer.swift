@@ -1,6 +1,10 @@
 import Foundation
+import UIKit
 
 struct TextTokenizer {
+    
+    // Shared text checker instance for performance (thread-safe according to Apple docs)
+    private static let spellChecker = UITextChecker()
     
     /// Tokenize text into words for RSVP display
     static func tokenize(_ text: String) -> [String] {
@@ -8,13 +12,48 @@ struct TextTokenizer {
         let components = text.components(separatedBy: .whitespacesAndNewlines)
         
         var words: [String] = []
+        var skipNext = false
         
-        for component in components {
+        for i in 0..<components.count {
+            if skipNext {
+                skipNext = false
+                continue
+            }
+            
+            let component = components[i]
             let trimmed = component.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
             
+            // Check for line-break hyphenation (e.g. from PDFs or copy-pasted text)
+            if trimmed.hasSuffix("-") && i + 1 < components.count {
+                let nextComponent = components[i+1].trimmingCharacters(in: .whitespaces)
+                if !nextComponent.isEmpty {
+                    let firstPart = String(trimmed.dropLast())
+                    
+                    // Extract just the letters to form a clean word for dictionary checking
+                    let firstLetters = firstPart.components(separatedBy: CharacterSet.letters.inverted).joined()
+                    let secondLetters = nextComponent.components(separatedBy: CharacterSet.letters.inverted).joined()
+                    let combinedWord = firstLetters + secondLetters
+                    
+                    if !combinedWord.isEmpty {
+                        let range = NSRange(location: 0, length: combinedWord.utf16.count)
+                        let misspelledRange = spellChecker.rangeOfMisspelledWord(in: combinedWord, range: range, startingAt: 0, wrap: false, language: "en_US")
+                        
+                        // If it's a valid dictionary word without hyphens, merge the two components
+                        if misspelledRange.location == NSNotFound {
+                            let merged = firstPart + nextComponent
+                            let parts = splitOnPunctuation(merged)
+                            words.append(contentsOf: parts)
+                            skipNext = true
+                            continue
+                        }
+                    }
+                }
+            }
+            
+            // Normal tokenization (either no hyphen or not a valid merged word)
             // Split on em dashes, en dashes, and slashes (but NOT hyphens)
-            // This keeps compound words like "well-known" together
+            // This keeps genuine compound words like "well-known" separate
             let parts = splitOnPunctuation(trimmed)
             words.append(contentsOf: parts)
         }
