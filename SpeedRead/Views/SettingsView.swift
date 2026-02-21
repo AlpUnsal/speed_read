@@ -28,6 +28,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
                 }
+                .listRowBackground(settings.cardBackgroundColor)
                 
                 // Section 3: Font
                 Section(header: Text("Font")) {
@@ -45,11 +46,13 @@ struct SettingsView: View {
                             .accentColor(Color(hex: "E63946"))
                     }
                 }
+                .listRowBackground(settings.cardBackgroundColor)
                 
                 // About / Info
                 Section(footer: Text("Axilo v1.0")) {
                     // Empty section for spacing/footer
                 }
+                .listRowBackground(settings.backgroundColor)
             }
             .navigationBarTitle("Settings", displayMode: .inline)
             .navigationBarItems(trailing: Button("Done") {
