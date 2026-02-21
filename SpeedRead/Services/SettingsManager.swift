@@ -101,7 +101,7 @@ class SettingsManager: ObservableObject {
         case .grey:
             return Color(hex: "232323")
         case .cream:
-            return Color(hex: "FFFFFF") // White cards on cream look good
+            return Color(hex: "FFFCE2") // Lighter warm cream that blends better
         case .white:
             return Color(hex: "F9F9F9") // Slightly off-white cards on white background
         }
@@ -113,7 +113,9 @@ class SettingsManager: ObservableObject {
             return Color(hex: "2A2A2A")
         case .grey:
             return Color(hex: "333333")
-        case .cream, .white:
+        case .cream:
+            return Color(hex: "EAE8BD") // Muted warm border
+        case .white:
             return Color(hex: "E0E0E0")
         }
     }
@@ -131,7 +133,9 @@ class SettingsManager: ObservableObject {
         switch theme {
         case .black, .grey:
             return Color(hex: "2A2A2A")
-        case .cream, .white:
+        case .cream:
+            return Color(hex: "EAE8BD") // Muted warm track
+        case .white:
             return Color(hex: "E5E5E5")
         }
     }
@@ -142,7 +146,9 @@ class SettingsManager: ObservableObject {
             return Color(hex: "1A1A1A")
         case .grey:
             return Color(hex: "2A2A2A")
-        case .cream, .white:
+        case .cream:
+            return Color(hex: "F4F1C9") // Slightly darker cream button
+        case .white:
             return Color(hex: "F5F5F5")
         }
     }

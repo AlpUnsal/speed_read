@@ -86,7 +86,8 @@ struct ChapterListView: View {
     
     private var dividerColor: Color {
         switch settings.theme {
-        case .cream, .white: return Color(hex: "E0E0E0")
+        case .cream: return Color(hex: "EAE8BD")
+        case .white: return Color(hex: "E0E0E0")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -202,7 +203,8 @@ private struct ChapterRow: View {
     
     private var trackColor: Color {
         switch settings.theme {
-        case .cream, .white: return Color(hex: "E0E0E0")
+        case .cream: return Color(hex: "EAE8BD")
+        case .white: return Color(hex: "E0E0E0")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -215,7 +217,8 @@ private struct ChapterRow: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "252525")
-        case .cream, .white: return Color(hex: "F5F5F5")
+        case .cream: return Color(hex: "F4F1C9")
+        case .white: return Color(hex: "F5F5F5")
         }
     }
 }

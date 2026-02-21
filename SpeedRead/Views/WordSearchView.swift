@@ -173,7 +173,8 @@ struct WordSearchView: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "2A2A2A")
-        case .cream, .white: return Color(hex: "F0F0F0")
+        case .cream: return Color(hex: "FFFCE2") // Warm light cream
+        case .white: return Color(hex: "F0F0F0")
         }
     }
 }
@@ -246,7 +247,8 @@ private struct SearchResultRow: View {
         switch settings.theme {
         case .black: return Color(hex: "1A1A1A")
         case .grey: return Color(hex: "2A2A2A")
-        case .cream, .white: return Color(hex: "EEEEEE")
+        case .cream: return Color(hex: "F4F1C9") // Slightly darker cream for current selection
+        case .white: return Color(hex: "EEEEEE")
         }
     }
 }
