@@ -131,7 +131,7 @@ struct RSVPView: View {
                     // In RSVP mode: fades when playing
                     ZStack {
                         // Progress indicator (Centered absolutely)
-                        Text("Section \(viewModel.chapterProgressPercentage)% · Document \(viewModel.bookProgressPercentage)%")
+                        Text("Chapter \(viewModel.chapterProgressPercentage)% · Book \(viewModel.bookProgressPercentage)%")
                             .font(.custom("EBGaramond-Regular", size: 14))
                             .foregroundColor(Color(hex: "555555"))
                         

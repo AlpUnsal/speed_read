@@ -9,8 +9,8 @@ struct ContentView: View {
     @State private var currentDocument: ReadingDocument? = nil
     @State private var isReading = false
     @State private var showContent = false
-    
-    @AppStorage("hasAddedSample") private var hasAddedSample = false
+    @State private var selectedTab = 0
+    @State private var isProcessingDocument = false
     
     // Most recent document for Resume feature
     private var mostRecentDocument: ReadingDocument? {
@@ -37,17 +37,74 @@ struct ContentView: View {
                 )
                 .transition(.opacity.combined(with: .scale(scale: 1.02)))
             } else {
-                homeScreen
+                ZStack(alignment: .bottom) {
+                    TabView(selection: $selectedTab) {
+                        HomeView(
+                            showDocumentPicker: $showDocumentPicker,
+                            showSettings: $showSettings,
+                            showContent: $showContent,
+                            currentDocument: $currentDocument,
+                            isReading: $isReading
+                        )
+                        .tag(0)
+                        
+                        LibraryView(
+                            selectedDocument: $currentDocument,
+                            isPresented: .constant(true) // Not dismissible here
+                        )
+                        .tag(1)
+                        
+                        ExploreView()
+                            .tag(2)
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .ignoresSafeArea(edges: .bottom) // Ensure content goes behind the tab bar
+                    
+                    // Custom Floating Liquid Glass Tab Bar
+                    CustomTabBar(selectedTab: $selectedTab)
+                }
+            }
+            if isProcessingDocument {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: settings.accentColor))
+                        .scaleEffect(1.5)
+                    
+                    Text("Downloading...")
+                        .font(.custom("EBGaramond-Regular", size: 18))
+                        .foregroundColor(settings.textColor)
+                }
+                .padding(32)
+                .background(settings.cardBackgroundColor)
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(settings.cardBorderColor.opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.15), radius: 10, x: 0, y: 5)
             }
         }
         .preferredColorScheme(settings.theme.colorScheme)
         .animation(.easeInOut(duration: 0.3), value: isReading)
+        .animation(.easeInOut(duration: 0.2), value: isProcessingDocument)
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
         .sheet(isPresented: $showDocumentPicker) {
             DocumentPicker { pickedDoc in
                 let fileName = pickedDoc.url.deletingPathExtension().lastPathComponent
+                
+                // Check if document already exists
+                if let existingDoc = libraryManager.documents.first(where: { $0.name == fileName }) {
+                    currentDocument = existingDoc
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isReading = true
+                    }
+                    return
+                }
                 
                 // If content is already present (small text files), use it.
                 if let availableContent = pickedDoc.content {
@@ -57,6 +114,7 @@ struct ContentView: View {
                         isReading = true
                     }
                 } else {
+                    isProcessingDocument = true
                     // Content is nil, meaning we need to parse it asynchronously
                     // Show some loading state or just process in background while sheet dismisses
                     Task {
@@ -74,6 +132,7 @@ struct ContentView: View {
                                     navigationPoints: result.navigationPoints // Pass the sections!
                                 )
                                 currentDocument = doc
+                                isProcessingDocument = false
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     isReading = true
                                 }
@@ -81,6 +140,9 @@ struct ContentView: View {
                         } else {
                              // Handle failure (e.g. show alert)
                              print("Failed to parse document async")
+                             await MainActor.run {
+                                 isProcessingDocument = false
+                             }
                         }
                         
                         // Clean up temp file
@@ -89,20 +151,14 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(isPresented: $showLibrary, onDismiss: {
-            if currentDocument != nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isReading = true
-                    }
-                }
-            }
-        }) {
-            LibraryView(
-                selectedDocument: $currentDocument,
-                isPresented: $showLibrary
-            )
-        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DownloadAndReadBook")), perform: { notification in
+            guard let userInfo = notification.userInfo,
+                  let url = userInfo["url"] as? URL,
+                  let title = userInfo["title"] as? String else { return }
+            
+            let ext = userInfo["ext"] as? String ?? "txt"
+            downloadAndOpenBook(url: url, title: title, ext: ext)
+        })
         .onAppear {
             withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
                 showContent = true
@@ -113,214 +169,67 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Home Screen
+    // MARK: - Downloading
     
-    private var homeScreen: some View {
-        VStack(spacing: 0) {
-            // Settings button in top-right
-            HStack {
-                Spacer()
-                Button(action: { showSettings = true }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 18, weight: .light))
-                        .foregroundColor(settings.mutedTextColor)
-                        .padding(12)
-                        .background(Color.clear)
+    private func downloadAndOpenBook(url: URL, title: String, ext: String) {
+        // Check if document already exists
+        if let existingDoc = libraryManager.documents.first(where: { $0.name == title }) {
+            currentDocument = existingDoc
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isReading = true
                 }
-                .padding(.top, 8)
-                .padding(.trailing, 12)
             }
-            .opacity(showContent ? 1 : 0)
-            
-            Spacer()
-            
-            // Main content
-            VStack(spacing: 28) {
-                // App Title
-                Text("Axilo")
-                    .font(.custom("EBGaramond-Regular", size: 52))
-                    .foregroundColor(settings.textColor)
-                
-                // Resume button (if document available)
-                if let doc = mostRecentDocument {
-                    resumeButton(for: doc)
+            return
+        }
+        
+        isProcessingDocument = true
+        // Show a loading indicator ideally, but for now we'll just download in the background
+        Task {
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                    print("Failed to download book")
+                    await MainActor.run { isProcessingDocument = false }
+                    return
                 }
                 
-                // Action buttons row
-                HStack(spacing: 12) {
-                    // Import Document
-                    actionButton(
-                        icon: "square.and.arrow.down",
-                        title: "Import Document",
-                        action: { showDocumentPicker = true }
-                    )
-                    
-                    // Open Library (if documents exist)
-                    if !libraryManager.documents.isEmpty {
-                        actionButton(
-                            icon: "books.vertical",
-                            title: "Open Library (\(libraryManager.documents.count))",
-                            action: { showLibrary = true }
+                // Temporary file to let the parser try to parse it
+                let tempDir = FileManager.default.temporaryDirectory
+                let safeTitle = title.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
+                let tempFileURL = tempDir.appendingPathComponent("\(safeTitle).\(ext)")
+                try data.write(to: tempFileURL)
+                
+                // Parse it (we can reuse existing DocumentParser)
+                if let result = await Task.detached(priority: .userInitiated, operation: {
+                    return DocumentParser.parseWithNavigation(url: tempFileURL)
+                }).value {
+                    // Back on main
+                    await MainActor.run {
+                        let doc = libraryManager.addDocument(
+                            name: title,
+                            content: result.text,
+                            sourceBookmark: nil,
+                            navigationPoints: result.navigationPoints
                         )
-                    }
-                }
-                .padding(.horizontal, 24)
-                
-                
-                // Try Sample
-                if !hasAddedSample {
-                    Button(action: {
-                        let doc = libraryManager.addDocument(name: "Sample Text", content: SampleText.content)
                         currentDocument = doc
-                        hasAddedSample = true
+                        isProcessingDocument = false
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isReading = true
                         }
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "text.alignleft")
-                                .font(.system(size: 14, weight: .light))
-                            Text("Try Sample")
-                                .font(.custom("EBGaramond-Regular", size: 15))
-                        }
-                        .foregroundColor(settings.mutedTextColor)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.top, 4)
-                }
-            }
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 20)
-            
-            Spacer()
-            
-            // Recent Library Section
-            if libraryManager.documents.count > 0 {
-                recentLibrarySection
-                    .opacity(showContent ? 1 : 0)
-                    .offset(y: showContent ? 0 : 20)
-            }
-        }
-    }
-    
-    // MARK: - Resume Button
-    
-    private func resumeButton(for doc: ReadingDocument) -> some View {
-        Button(action: {
-            currentDocument = doc
-            withAnimation(.easeInOut(duration: 0.3)) {
-                isReading = true
-            }
-        }) {
-            HStack(spacing: 14) {
-                // Book icon with subtle background
-                ZStack {
-                    Circle()
-                        .fill(settings.accentColor.opacity(0.15))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 14, weight: .regular))
-                        .foregroundColor(settings.accentColor)
+                } else {
+                    await MainActor.run { isProcessingDocument = false }
                 }
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Continue Reading")
-                        .font(.custom("EBGaramond-Regular", size: 12))
-                        .foregroundColor(settings.secondaryTextColor)
-                    
-                    Text(doc.name)
-                        .font(.custom("EBGaramond-Regular", size: 16))
-                        .foregroundColor(settings.textColor)
-                        .lineLimit(1)
-                }
+                // Cleanup
+                try? FileManager.default.removeItem(at: tempFileURL)
                 
-                Spacer()
-                
-                // Progress indicator
-                Text("\(Int(doc.progress * 100))%")
-                    .font(.custom("EBGaramond-Regular", size: 14))
-                    .foregroundColor(settings.secondaryTextColor)
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(settings.mutedTextColor)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(settings.cardBackgroundColor)
-                    .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(settings.cardBorderColor.opacity(0.4), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .padding(.horizontal, 24)
-    }
-    
-    // MARK: - Action Button
-    
-    private func actionButton(icon: String, title: String, isPrimary: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .regular))
-                Text(title)
-                    .font(.custom("EBGaramond-Regular", size: 15))
-            }
-            .foregroundColor(isPrimary ? settings.primaryButtonTextColor : settings.textColor)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 13)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isPrimary ? settings.primaryButtonBackgroundColor : settings.cardBackgroundColor)
-                    .shadow(color: Color.black.opacity(isPrimary ? 0.15 : 0.06), radius: isPrimary ? 6 : 4, x: 0, y: 2)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(settings.cardBorderColor.opacity(isPrimary ? 0 : 0.3), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(ScaleButtonStyle())
-    }
-    
-    // MARK: - Recent Library Section
-    
-    private var recentLibrarySection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Recent")
-                .font(.custom("EBGaramond-Regular", size: 18))
-                .foregroundColor(settings.secondaryTextColor)
-                .padding(.horizontal, 24)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(libraryManager.documents.prefix(10)) { document in
-                        DocumentCard(
-                            document: document,
-                            onTap: {
-                                currentDocument = document
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    isReading = true
-                                }
-                            },
-                            onDelete: {
-                                withAnimation {
-                                    libraryManager.deleteDocument(document)
-                                }
-                            }
-                        )
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 8)
+            } catch {
+                print("Failed to download text: \(error)")
+                await MainActor.run { isProcessingDocument = false }
             }
         }
-        .padding(.bottom, 32)
     }
     
     // MARK: - URL Handling

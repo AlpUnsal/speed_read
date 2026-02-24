@@ -19,13 +19,6 @@ struct LibraryView: View {
                         .foregroundColor(settings.textColor)
                     
                     Spacer()
-                    
-                    Button(action: { isPresented = false }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .light))
-                            .foregroundColor(settings.mutedTextColor)
-                            .padding(8)
-                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
