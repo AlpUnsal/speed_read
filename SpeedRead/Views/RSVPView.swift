@@ -754,10 +754,16 @@ struct RSVPView: View {
                 // Re-lock to portrait when leaving
                 OrientationManager.orientationLock = .portrait
                 saveProgress()
-                UIApplication.shared.isIdleTimerDisabled = false
+                
+                // Safely access UIApplication.shared for extensions
+                if let sharedApp = UIApplication.perform(NSSelectorFromString("sharedApplication"))?.takeUnretainedValue() as? UIApplication {
+                    sharedApp.isIdleTimerDisabled = false
+                }
             }
             .onChange(of: viewModel.isPlaying) { isPlaying in
-                UIApplication.shared.isIdleTimerDisabled = isPlaying
+                if let sharedApp = UIApplication.perform(NSSelectorFromString("sharedApplication"))?.takeUnretainedValue() as? UIApplication {
+                    sharedApp.isIdleTimerDisabled = isPlaying
+                }
             }
             .statusBarHidden(true)
             .sheet(isPresented: $showChapterList) {
