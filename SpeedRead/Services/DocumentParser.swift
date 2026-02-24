@@ -81,7 +81,7 @@ struct DocumentParser {
                 
                 // 3. Save to Inbox
                 // logger.debug("DocumentParser: Saving to Inbox...")
-                LibraryManager.saveToInbox(newDoc)
+                LibraryManager.saveToInbox(newDoc, content: result.text)
                 
                 savedID = newDoc.id
                 
@@ -124,14 +124,19 @@ struct DocumentParser {
             
             if !text.isEmpty {
                 // If we found specific navigation points (Sections), use them.
-                // Otherwise, fallback to generic PageChunker
+                // Otherwise, fallback to HeadingDetector, and finally PageChunker
                 if !navigationPoints.isEmpty {
                      // logger.debug("DocumentParser: Creating result with sections")
                      finalResult = ParseResult(text: text, navigationPoints: navigationPoints)
                 } else {
-                     // logger.debug("DocumentParser: Fallback to pages")
-                     let pages = PageChunker.createPages(from: text)
-                     finalResult = ParseResult(text: text, navigationPoints: pages)
+                     let headings = HeadingDetector.createNavigationPoints(from: text)
+                     if !headings.isEmpty {
+                         finalResult = ParseResult(text: text, navigationPoints: headings)
+                     } else {
+                         // logger.debug("DocumentParser: Fallback to pages")
+                         let pages = PageChunker.createPages(from: text)
+                         finalResult = ParseResult(text: text, navigationPoints: pages)
+                     }
                 }
             } else {
                 logger.error("DocumentParser: Empty text!")

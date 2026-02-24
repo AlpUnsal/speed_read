@@ -24,7 +24,7 @@ struct ContentView: View {
             
             if isReading, let doc = currentDocument {
                 RSVPView(
-                    text: doc.content,
+                    text: libraryManager.loadContent(for: doc.id) ?? "",
                     documentId: doc.id,
                     startIndex: doc.currentWordIndex,
                     initialWPM: doc.wordsPerMinute,
@@ -50,7 +50,8 @@ struct ContentView: View {
                         
                         LibraryView(
                             selectedDocument: $currentDocument,
-                            isPresented: .constant(true) // Not dismissible here
+                            isPresented: .constant(true), // Not dismissible here
+                            isReading: $isReading
                         )
                         .tag(1)
                         
@@ -95,10 +96,11 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showDocumentPicker) {
             DocumentPicker { pickedDoc in
+                showDocumentPicker = false
                 let fileName = pickedDoc.url.deletingPathExtension().lastPathComponent
                 
-                // Check if document already exists
-                if let existingDoc = libraryManager.documents.first(where: { $0.name == fileName }) {
+                // Check if document already exists by current name or original name
+                if let existingDoc = libraryManager.documents.first(where: { $0.name == fileName || $0.originalName == fileName }) {
                     currentDocument = existingDoc
                     withAnimation(.easeInOut(duration: 0.3)) {
                         isReading = true
@@ -157,7 +159,8 @@ struct ContentView: View {
                   let title = userInfo["title"] as? String else { return }
             
             let ext = userInfo["ext"] as? String ?? "txt"
-            downloadAndOpenBook(url: url, title: title, ext: ext)
+            let coverURL = userInfo["coverURL"] as? URL
+            downloadAndOpenBook(url: url, title: title, ext: ext, coverURL: coverURL)
         })
         .onAppear {
             withAnimation(.easeOut(duration: 0.5).delay(0.1)) {
@@ -171,9 +174,9 @@ struct ContentView: View {
     
     // MARK: - Downloading
     
-    private func downloadAndOpenBook(url: URL, title: String, ext: String) {
+    private func downloadAndOpenBook(url: URL, title: String, ext: String, coverURL: URL? = nil) {
         // Check if document already exists
-        if let existingDoc = libraryManager.documents.first(where: { $0.name == title }) {
+        if let existingDoc = libraryManager.documents.first(where: { $0.name == title || $0.originalName == title }) {
             currentDocument = existingDoc
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -212,6 +215,16 @@ struct ContentView: View {
                             sourceBookmark: nil,
                             navigationPoints: result.navigationPoints
                         )
+                        
+                        if let coverURL = coverURL {
+                            Task.detached {
+                                if let (coverData, _) = try? await URLSession.shared.data(from: coverURL),
+                                   let coverImage = UIImage(data: coverData) {
+                                    ThumbnailManager.shared.saveManualThumbnail(image: coverImage, for: doc.id)
+                                }
+                            }
+                        }
+                        
                         currentDocument = doc
                         isProcessingDocument = false
                         withAnimation(.easeInOut(duration: 0.3)) {

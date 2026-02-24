@@ -78,7 +78,8 @@ struct ExploreView: View {
                         ScrollView {
                             LazyVStack(spacing: 12) {
                                 ForEach(searchService.searchResults) { book in
-                                    let isDownloaded = libraryManager.documents.contains(where: { $0.name == book.title })
+                                    // Check against both current name and original name to handle renamed books
+                                    let isDownloaded = libraryManager.documents.contains(where: { $0.name == book.title || $0.originalName == book.title })
                                     ExploreBookRow(book: book, isDownloaded: isDownloaded, onDownload: {
                                         // Download Action
                                         downloadAndParse(book)
@@ -101,6 +102,10 @@ struct ExploreView: View {
                 searchService.fetchPopularBooks()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ResetExploreView"))) { _ in
+            searchText = ""
+            searchService.clearSearch()
+        }
     }
     
     private func downloadAndParse(_ book: GutenbergBook) {
@@ -113,7 +118,11 @@ struct ExploreView: View {
         
         // Let's trigger a notification or post via NotificationCenter to show loading in ContentView 
         // OR pass a binding. For now, we will post a notification that ContentView listens to
-        NotificationCenter.default.post(name: NSNotification.Name("DownloadAndReadBook"), object: nil, userInfo: ["url": url, "title": book.title, "ext": ext])
+        var userInfo: [String: Any] = ["url": url, "title": book.title, "ext": ext]
+        if let coverURL = book.coverURL {
+            userInfo["coverURL"] = coverURL
+        }
+        NotificationCenter.default.post(name: NSNotification.Name("DownloadAndReadBook"), object: nil, userInfo: userInfo)
     }
 }
 

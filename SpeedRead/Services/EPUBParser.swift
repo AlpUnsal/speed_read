@@ -77,22 +77,102 @@ class EPUBParser {
                     if let chapterData = try? Data(contentsOf: chapterURL),
                        let chapterContent = String(data: chapterData, encoding: .utf8) {
                         
-                        let text = DocumentParser.extractTextFromHTML(chapterContent)
-                        let words = TextTokenizer.tokenize(text)
+                        // Look for sub-chapters within this HTML file (fragments)
+                        let subChapterHrefs = chapterTitles.keys.filter { $0.hasPrefix(href + "#") }.sorted()
                         
-                        if !words.isEmpty {
-                            // Create chapter navigation point
-                            let chapterTitle = chapterTitles[href] ?? "Chapter \(chapters.count + 1)"
-                            let chapter = NavigationPoint(
-                                title: chapterTitle,
-                                wordStartIndex: currentWordIndex,
-                                wordEndIndex: currentWordIndex + words.count,
-                                type: .chapter
-                            )
-                            chapters.append(chapter)
+                        var processedHTML = chapterContent
+                        
+                        var indicesToHrefs: [Int: String] = [:]
+                        
+                        // Inject markers into HTML for sub-chapters so they survive attributed string conversion
+                        for (idx, subHref) in subChapterHrefs.enumerated() {
+                            let fragment = subHref.components(separatedBy: "#").last ?? ""
+                            if !fragment.isEmpty {
+                                let marker = "axilomarker\(idx)axilo"
+                                indicesToHrefs[idx] = subHref
+                                
+                                // Attempt to insert marker right before the element with this ID or Name
+                                // We matching `<... id="fragment"` or `<... name="fragment"`
+                                // Added spaces around marker to prevent text fusion
+                                let pattern1 = "(<[^>]*id=\"\(fragment)\"[^>]*>)"
+                                let pattern2 = "(<[^>]*name=\"\(fragment)\"[^>]*>)"
+                                
+                                processedHTML = processedHTML.replacingOccurrences(
+                                    of: pattern1,
+                                    with: " \(marker) $1",
+                                    options: .regularExpression
+                                )
+                                processedHTML = processedHTML.replacingOccurrences(
+                                    of: pattern2,
+                                    with: " \(marker) $1",
+                                    options: .regularExpression
+                                )
+                            }
+                        }
+                        
+                        let text = DocumentParser.extractTextFromHTML(processedHTML)
+                        let rawWords = TextTokenizer.tokenize(text)
+                        
+                        if !rawWords.isEmpty {
+                            // Find where our markers ended up and clean the text
+                            var cleanWords: [String] = []
+                            var subChapterStarts: [(href: String, index: Int)] = []
                             
-                            fullText += text + "\n\n"
-                            currentWordIndex += words.count
+                            // If the whole file itself is a chapter without fragments
+                            if let mainTitle = chapterTitles[href] {
+                                subChapterStarts.append((href, currentWordIndex))
+                            }
+                            
+                            for word in rawWords {
+                                let lowerWord = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
+                                if lowerWord.hasPrefix("axilomarker") && lowerWord.hasSuffix("axilo") {
+                                    let idxString = String(lowerWord.dropFirst(11).dropLast(5))
+                                    if let idx = Int(idxString), let fullHref = indicesToHrefs[idx] {
+                                        if chapterTitles[fullHref] != nil {
+                                            subChapterStarts.append((fullHref, currentWordIndex + cleanWords.count))
+                                        }
+                                    }
+                                } else {
+                                    cleanWords.append(word)
+                                }
+                            }
+                            
+                            // Build full clean text
+                            let chapterCleanText = cleanWords.joined(separator: " ")
+                            fullText += chapterCleanText + "\n\n"
+                            
+                            // IF NO CHAPTERS WERE IDENTIFIED (no explicit title, no fragments)
+                            // Fallback to making the whole file one section
+                            if subChapterStarts.isEmpty {
+                                subChapterStarts.append((href, currentWordIndex))
+                            }
+                            
+                            // Create Navigation Points
+                            for (i, startNode) in subChapterStarts.enumerated() {
+                                let chapterTitle = chapterTitles[startNode.href] ?? "Chapter \(chapters.count + 1)"
+                                
+                                let nWordStart = startNode.index
+                                let nWordEnd: Int
+                                
+                                if i + 1 < subChapterStarts.count {
+                                    nWordEnd = subChapterStarts[i + 1].index
+                                } else {
+                                    nWordEnd = currentWordIndex + cleanWords.count
+                                }
+                                
+                                // Only add if it actually has content
+                                if nWordEnd > nWordStart {
+                                    let chapter = NavigationPoint(
+                                        title: chapterTitle,
+                                        wordStartIndex: nWordStart,
+                                        wordEndIndex: nWordEnd,
+                                        type: .chapter
+                                    )
+                                    chapters.append(chapter)
+                                }
+                            }
+                            
+                            currentWordIndex += cleanWords.count
                         }
                     } else {
                         logger.warning("Could not read chapter: \(href)")
@@ -100,15 +180,42 @@ class EPUBParser {
                 }
             }
             
+            // Adjust final end indices to be purely contiguous
+            for i in 0..<chapters.count {
+               if i + 1 < chapters.count {
+                   chapters[i] = NavigationPoint(
+                       title: chapters[i].title,
+                       wordStartIndex: chapters[i].wordStartIndex,
+                       wordEndIndex: chapters[i + 1].wordStartIndex,
+                       type: chapters[i].type,
+                       level: chapters[i].level
+                   )
+               }
+            }
+            
             // Cleanup
             try? fileManager.removeItem(at: tempDir)
             
             let trimmedText = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
             
-            // If no chapters were extracted, fall back to page-based navigation
+            // If no chapters were extracted, fall back to heading detection first, then pages
             if chapters.isEmpty && !trimmedText.isEmpty {
-                let pages = PageChunker.createPages(from: trimmedText)
-                return ParseResult(text: trimmedText, chapters: pages)
+                let headings = HeadingDetector.createNavigationPoints(from: trimmedText)
+                if !headings.isEmpty {
+                    return ParseResult(text: trimmedText, chapters: headings)
+                } else {
+                    let pages = PageChunker.createPages(from: trimmedText)
+                    return ParseResult(text: trimmedText, chapters: pages)
+                }
+            }
+            
+            // If we have very few chapters (e.g. 1 massive chapter) and the book is huge, 
+            // Heading Detector might be better
+            if chapters.count <= 2 && trimmedText.count > 50000 {
+                let headings = HeadingDetector.createNavigationPoints(from: trimmedText)
+                if headings.count > chapters.count {
+                    return ParseResult(text: trimmedText, chapters: headings)
+                }
             }
             
             return ParseResult(text: trimmedText, chapters: chapters)
@@ -227,8 +334,8 @@ private class NCXParser: NSObject, XMLParserDelegate {
         
         if name == "content" || name.hasSuffix(":content") {
             if let src = attributeDict["src"] {
-                // Remove fragment identifier (e.g., "chapter1.xhtml#section1" -> "chapter1.xhtml")
-                currentNavPointSrc = src.components(separatedBy: "#").first
+                // Keep the fragment identifier so we can map sub-chapters!
+                currentNavPointSrc = src
             }
         }
     }

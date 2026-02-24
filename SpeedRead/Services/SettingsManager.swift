@@ -29,10 +29,11 @@ enum ReaderMode: String, CaseIterable, Identifiable {
 class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
     
-    @AppStorage("appTheme") var theme: AppTheme = .cream // Defaulting to Cream
+    @AppStorage("theme") var theme: AppTheme = .cream // Defaulting to Cream
     @AppStorage("readerMode") var readerMode: ReaderMode = .rsvp
     @AppStorage("fontName") var fontName: String = "EBGaramond-Regular"
     @AppStorage("fontSizeMultiplier") var fontSizeMultiplier: Double = 1.0
+    @AppStorage("showORPEmphasisLines") var showORPEmphasisLines: Bool = false
     
     // Available fonts - strictly curating to high quality reading fonts
     let availableFonts = [

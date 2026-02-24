@@ -8,6 +8,8 @@ struct WordDisplayView: View {
     var animate: Bool = true
     var useAbsolutePositioning: Bool = true
     
+    @ObservedObject var settings = SettingsManager.shared
+    
     // Colors
     private var textColor: Color {
         switch theme {
@@ -23,8 +25,32 @@ struct WordDisplayView: View {
     var body: some View {
         if useAbsolutePositioning {
             GeometryReader { geometry in
-                wordContent
-                    .position(x: calculateXPosition(in: geometry), y: geometry.size.height / 2)
+                ZStack {
+                    wordContent
+                        .position(x: calculateXPosition(in: geometry), y: geometry.size.height / 2)
+                    
+                    if settings.showORPEmphasisLines {
+                        let anchorX = geometry.size.width * 0.38
+                        let centerY = geometry.size.height / 2
+                        
+                        // Use constants based on 48.0 max font size for stability
+                        let baseFontSize: CGFloat = 48.0
+                        let lineLength = baseFontSize * 0.25
+                        let lineSpacing = baseFontSize * 0.4
+                        
+                        VStack(spacing: 0) {
+                            Rectangle()
+                                .fill(textColor.opacity(0.3))
+                                .frame(width: 1.5, height: lineLength)
+                            Spacer()
+                                .frame(height: lineSpacing * 2 + baseFontSize * 0.8)
+                            Rectangle()
+                                .fill(textColor.opacity(0.3))
+                                .frame(width: 1.5, height: lineLength)
+                        }
+                        .position(x: anchorX, y: centerY)
+                    }
+                }
             }
         } else {
             wordContent
@@ -34,9 +60,10 @@ struct WordDisplayView: View {
     private var wordContent: some View {
         HStack(spacing: 0) {
             ForEach(Array(word.enumerated()), id: \.offset) { index, character in
+                let isORP = (index == 1 || (word.count == 1 && index == 0))
                 Text(String(character))
                     .font(.custom(fontName, size: fontSize))
-                    .foregroundColor((index == 1 || (word.count == 1 && index == 0)) ? highlightColor : textColor)
+                    .foregroundColor(isORP ? highlightColor : textColor)
             }
         }
         .opacity((animate && !isVisible) ? 0 : 1)

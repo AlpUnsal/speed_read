@@ -109,7 +109,7 @@ class InboxShareViewController: SLComposeServiceViewController {
         if !text.isEmpty {
              // Use safer lightweight saving mechanism that doesn't load whole library
              let newDoc = ReadingDocument(name: title, content: text)
-             LibraryManager.saveToInbox(newDoc)
+             LibraryManager.saveToInbox(newDoc, content: text)
              
              DispatchQueue.main.async {
                  self.openMainApp(documentId: newDoc.id)

@@ -473,27 +473,53 @@ struct RSVPView: View {
                                         }
                                         
                                         // Build word with ORP highlighting
+                                        // Build word row with geometry for fixed lines
                                         GeometryReader { geo in
-                                            HStack(spacing: 0) {
-                                                ForEach(Array(viewModel.word(at: wordIndex).enumerated()), id: \.offset) { charIndex, character in
-                                                    let word = viewModel.word(at: wordIndex)
-                                                    let orpIndex = word.count <= 1 ? 0 : 1
-                                                    Text(String(character))
-                                                        .font(.custom(settings.fontName, size: (offset == 0 ? 40 : 20) * settings.fontSizeMultiplier))
-                                                        .foregroundColor(
-                                                            offset == 0 && charIndex == orpIndex
-                                                                ? Color(hex: "E63946") // Red for ORP letter
-                                                                : (offset == 0 
-                                                                    ? settings.textColor 
-                                                                    : settings.textColor.opacity(0.4 - Double(abs(offset)) * 0.04))
-                                                        )
-                                                        .fontWeight(offset == 0 ? .medium : .regular)
+                                            ZStack {
+                                                // The word itself
+                                                HStack(spacing: 0) {
+                                                    ForEach(Array(viewModel.word(at: wordIndex).enumerated()), id: \.offset) { charIndex, character in
+                                                        let word = viewModel.word(at: wordIndex)
+                                                        let orpIndex = word.count <= 1 ? 0 : 1
+                                                        let isORP = (offset == 0 && charIndex == orpIndex)
+                                                        let fontSize = (offset == 0 ? 40 : 20) * settings.fontSizeMultiplier
+                                                        
+                                                        Text(String(character))
+                                                            .font(.custom(settings.fontName, size: fontSize))
+                                                            .foregroundColor(
+                                                                isORP
+                                                                    ? Color(hex: "E63946") // Red for ORP letter
+                                                                    : (offset == 0 
+                                                                        ? settings.textColor 
+                                                                        : settings.textColor.opacity(0.4 - Double(abs(offset)) * 0.04))
+                                                            )
+                                                            .fontWeight(offset == 0 ? .medium : .regular)
+                                                    }
+                                                }
+                                                .fixedSize(horizontal: true, vertical: false)
+                                                .offset(x: offset == 0 ? calculateORPOffset(for: viewModel.word(at: wordIndex), in: geo) : 0)
+                                                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                                                
+                                                // Fixed lines for the top word in peek
+                                                if offset == 0 && settings.showORPEmphasisLines {
+                                                    // Use constants based on 48.0 max font size for stability
+                                                    let baseFontSize: CGFloat = 48.0 * settings.fontSizeMultiplier
+                                                    let lineLength = baseFontSize * 0.25
+                                                    let lineSpacing = baseFontSize * 0.4
+                                                    
+                                                    VStack(spacing: 0) {
+                                                        Rectangle()
+                                                            .fill(settings.textColor.opacity(0.3))
+                                                            .frame(width: 1.5, height: lineLength)
+                                                        Spacer()
+                                                            .frame(height: lineSpacing * 2 + baseFontSize * 0.8)
+                                                        Rectangle()
+                                                            .fill(settings.textColor.opacity(0.3))
+                                                            .frame(width: 1.5, height: lineLength)
+                                                    }
+                                                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
                                                 }
                                             }
-                                            .fixedSize(horizontal: true, vertical: false)
-                                            .offset(x: offset == 0 ? calculateORPOffset(for: viewModel.word(at: wordIndex), in: geo) : 0)
-                                            .multilineTextAlignment(.center)
-                                            .position(x: geo.size.width / 2, y: geo.size.height / 2)
                                         }
                                         .frame(height: 40)
                                         
@@ -760,7 +786,7 @@ struct RSVPView: View {
                     sharedApp.isIdleTimerDisabled = false
                 }
             }
-            .onChange(of: viewModel.isPlaying) { isPlaying in
+            .onChange(of: viewModel.isPlaying) { _, isPlaying in
                 if let sharedApp = UIApplication.perform(NSSelectorFromString("sharedApplication"))?.takeUnretainedValue() as? UIApplication {
                     sharedApp.isIdleTimerDisabled = isPlaying
                 }

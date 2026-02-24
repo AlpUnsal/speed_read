@@ -65,7 +65,7 @@ struct HeadingDetector {
         let words = TextTokenizer.tokenize(text)
         let totalWords = words.count
         
-        // Create a map of line index to word index
+        // Create map of line index to word index
         var lineToWordIndex: [Int] = []
         var currentWordIndex = 0
         
@@ -75,13 +75,44 @@ struct HeadingDetector {
             currentWordIndex += lineWords.count
         }
         
-        // Create navigation points
-        for (i, heading) in headings.enumerated() {
+        // 1. Filter out Table of Contents Blocks
+        // If we have 4+ headings very close to each other (e.g. < 40 words apart), they are likely TOC
+        var filteredHeadings: [DetectedHeading] = []
+        var i = 0
+        while i < headings.count {
+            var clusterSize = 1
+            var j = i + 1
+            
+            while j < headings.count {
+                let wordDist = lineToWordIndex[headings[j].lineIndex] - lineToWordIndex[headings[j-1].lineIndex]
+                if wordDist < 50 {
+                    clusterSize += 1
+                    j += 1
+                } else {
+                    break
+                }
+            }
+            
+            // If the cluster is exactly 1 or 2 items, it's likely safe.
+            // But if it's 4+ tight headings, it's almost certainly a TOC block.
+            if clusterSize < 4 {
+                filteredHeadings.append(headings[i])
+                i += 1
+            } else {
+                // Skip the entire TOC block
+                i = j
+            }
+        }
+        
+        guard !filteredHeadings.isEmpty else { return [] }
+        
+        // 2. Create navigation points
+        for (i, heading) in filteredHeadings.enumerated() {
             let startIndex = lineToWordIndex[heading.lineIndex]
             let endIndex: Int
             
-            if i + 1 < headings.count {
-                endIndex = lineToWordIndex[headings[i + 1].lineIndex]
+            if i + 1 < filteredHeadings.count {
+                endIndex = lineToWordIndex[filteredHeadings[i + 1].lineIndex]
             } else {
                 endIndex = totalWords
             }

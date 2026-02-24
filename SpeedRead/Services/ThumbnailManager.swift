@@ -90,6 +90,13 @@ class ThumbnailManager {
         }
     }
     
+    /// Manually save a thumbnail (useful for downloaded book covers)
+    func saveManualThumbnail(image: UIImage, for documentId: UUID) {
+        let cacheKey = documentId.uuidString as NSString
+        cache.setObject(image, forKey: cacheKey)
+        saveToDisk(image: image, documentId: documentId)
+    }
+    
     /// Clear thumbnail for a document
     func clearThumbnail(for documentId: UUID) {
         let cacheKey = documentId.uuidString as NSString

@@ -5,6 +5,10 @@ struct LibraryView: View {
     @ObservedObject var settings = SettingsManager.shared
     @Binding var selectedDocument: ReadingDocument?
     @Binding var isPresented: Bool
+    @Binding var isReading: Bool
+    
+    @State private var documentToRename: ReadingDocument?
+    @State private var newDocumentName: String = ""
     
     var body: some View {
         ZStack {
@@ -31,6 +35,21 @@ struct LibraryView: View {
                 } else {
                     documentList
                 }
+            }
+        }
+        .alert("Rename Document", isPresented: Binding(
+            get: { documentToRename != nil },
+            set: { if !$0 { documentToRename = nil } }
+        )) {
+            TextField("Name", text: $newDocumentName)
+            Button("Cancel", role: .cancel) {
+                documentToRename = nil
+            }
+            Button("Save") {
+                if let doc = documentToRename, !newDocumentName.isEmpty {
+                    libraryManager.renameDocument(id: doc.id, newName: newDocumentName)
+                }
+                documentToRename = nil
             }
         }
     }
@@ -61,6 +80,9 @@ struct LibraryView: View {
                         document: document,
                         onContinue: {
                             selectedDocument = document
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isReading = true
+                            }
                             isPresented = false
                         },
                         onRestart: {
@@ -70,6 +92,10 @@ struct LibraryView: View {
                                 selectedDocument = doc
                             }
                             isPresented = false
+                        },
+                        onRename: {
+                            newDocumentName = document.name
+                            documentToRename = document
                         },
                         onDelete: {
                             withAnimation {
@@ -91,6 +117,7 @@ struct DocumentRow: View {
     let document: ReadingDocument
     let onContinue: () -> Void
     let onRestart: () -> Void
+    let onRename: () -> Void
     let onDelete: () -> Void
     
     @ObservedObject var settings = SettingsManager.shared
@@ -163,6 +190,9 @@ struct DocumentRow: View {
             }
             Button(action: onRestart) {
                 Label("Restart", systemImage: "arrow.counterclockwise")
+            }
+            Button(action: onRename) {
+                Label("Rename", systemImage: "pencil")
             }
             Divider()
             Button(role: .destructive, action: onDelete) {

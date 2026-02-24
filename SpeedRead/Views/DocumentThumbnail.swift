@@ -18,10 +18,7 @@ struct DocumentThumbnail: View {
     
     // Get first sentence or fragment for display
     private var excerpt: String {
-        let words = document.content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-        let excerptWords = Array(words.prefix(12))
-        let text = excerptWords.joined(separator: " ")
-        return text.count > 60 ? String(text.prefix(60)) + "..." : text
+        return document.excerpt
     }
     
     var body: some View {

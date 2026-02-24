@@ -27,6 +27,10 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(SegmentedPickerStyle())
+                    
+                    Toggle("Focus Lines", isOn: $settings.showORPEmphasisLines)
+                        .font(.system(size: 16))
+                        .tint(Color(hex: "E63946"))
                 }
                 .listRowBackground(settings.cardBackgroundColor)
                 
