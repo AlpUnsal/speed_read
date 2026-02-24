@@ -54,11 +54,14 @@ struct PDFParsingService {
                 // Mark start of page words
                 pageWordCounts.append(currentWordCount)
                 
+                var pageHeadings: [InternalSection] = []
+                var localWords: [String] = []
+                
                 guard let attributedString = page.attributedString else { return }
                 let pageText = attributedString.string
                 let fullRange = NSRange(location: 0, length: attributedString.length)
                 
-                var boundsForLine: [NSRect] = []
+                var boundsForLine: [CGRect] = []
                 var lineStrings: [String] = []
 
                 (pageText as NSString).enumerateSubstrings(in: fullRange, options: .byLines) { line, substringRange, _, _ in
