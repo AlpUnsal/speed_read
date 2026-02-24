@@ -58,75 +58,139 @@ struct PDFParsingService {
                 let pageText = attributedString.string
                 let fullRange = NSRange(location: 0, length: attributedString.length)
                 
-                var pageHeadings: [InternalSection] = []
-                var localWords: [String] = []
-                
+                var boundsForLine: [NSRect] = []
+                var lineStrings: [String] = []
+
                 (pageText as NSString).enumerateSubstrings(in: fullRange, options: .byLines) { line, substringRange, _, _ in
                     guard let line = line else { return }
-                    let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if cleanLine.isEmpty { return }
+                    lineStrings.append(line)
                     
-                    // 2. Section Detection (Native)
-                    if !isUsingOutline {
-                        if let font = attributedString.attribute(.font, at: substringRange.location, effectiveRange: nil) as? UIFont {
-                             let fontSize = font.pointSize
-                             
-                             // A) LEARN STYLE (if not yet learned)
-                             if learnedHeadingFontSize == nil {
-                                 let lowerLine = cleanLine.lowercased()
-                                 for anchor in anchorKeywords {
-                                     if lowerLine.contains(anchor) {
-                                         let textOnly = lowerLine.replacingOccurrences(of: "^[0-9ivx]+\\.?\\s*", with: "", options: .regularExpression)
-                                         
-                                         if textOnly == anchor || textOnly.hasPrefix(anchor + " ") || textOnly.hasPrefix(anchor + ":") {
-                                             let wordCount = cleanLine.components(separatedBy: .whitespaces).count
-                                             if wordCount <= 10 {
-                                                 learnedHeadingFontSize = fontSize
-                                                 logger.error("🎯 LEARNED HEADING STYLE: Size \(fontSize) from '\(cleanLine)'")
-                                             }
-                                         }
-                                     }
-                                 }
+                    // We need the bounding box to check for headers/footers
+                    guard let selections = page.selection(for: substringRange) else {
+                        boundsForLine.append(.zero)
+                        return
+                    }
+                    boundsForLine.append(selections.bounds(for: page))
+                }
+
+                // 2. Identify "Body" characteristics (Median Font Size)
+                var fontSizes: [CGFloat] = []
+                for i in 0..<lineStrings.count {
+                    let range = (pageText as NSString).range(of: lineStrings[i])
+                    if range.location != NSNotFound, range.length > 0 {
+                        if let font = attributedString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont {
+                            fontSizes.append(font.pointSize)
+                        }
+                    }
+                }
+                
+                let bodyFontSize: CGFloat
+                if fontSizes.isEmpty {
+                    bodyFontSize = 12.0 // Fallback
+                } else {
+                    let sortedFonts = fontSizes.sorted()
+                    bodyFontSize = sortedFonts[sortedFonts.count / 2] // Median is usually body text
+                }
+
+                // Page dimensions for relative margin calculation
+                let pageBounds = page.bounds(for: .cropBox)
+                let pageHeight = pageBounds.height
+                let topMarginThreshold = pageBounds.maxY - (pageHeight * 0.12) // Top 12%
+                let bottomMarginThreshold = pageBounds.minY + (pageHeight * 0.12) // Bottom 12%
+
+                // Process lines, applying header/footer exclusion
+                for (index, line) in lineStrings.enumerated() {
+                    let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if cleanLine.isEmpty { continue }
+
+                    let bounds = boundsForLine[index]
+                    let isAtTop = bounds.minY > topMarginThreshold 
+                    let isAtBottom = bounds.maxY < bottomMarginThreshold
+                    
+                    // Retrieve font size for this line
+                    var lineFontSize = bodyFontSize // Default
+                    let range = (pageText as NSString).range(of: line)
+                    if range.location != NSNotFound, range.length > 0 {
+                        if let font = attributedString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont {
+                            lineFontSize = font.pointSize
+                        }
+                    }
+
+                    // --- HYBRID EXCLUSION RULES ---
+                    if bounds != .zero {
+                        // 1. If it's in the extreme margins and NOT the body font size, it is a header/footer
+                        if (isAtTop || isAtBottom) {
+                             if abs(lineFontSize - bodyFontSize) > 0.5 {
+                                 // logger.info("Excluding Header/Footer (Font Mismatch): '\(cleanLine)'")
+                                 continue
                              }
                              
-                             // B) DETECT USING LEARNED STYLE
-                             var isHeading = false
-                             if let targetSize = learnedHeadingFontSize {
-                                 let sizeDiff = abs(fontSize - targetSize)
-                                 let isSizeMatch = sizeDiff < 0.5
-                                 
-                                 if isSizeMatch {
-                                     let wordCount = cleanLine.components(separatedBy: .whitespaces).count
-                                     let endsWithPeriod = cleanLine.hasSuffix(".")
-                                     let isTitleCase = cleanLine.range(of: "^[0-9A-Z]", options: .regularExpression) != nil
-                                     
-                                     if wordCount <= 15 && !endsWithPeriod && isTitleCase {
-                                         isHeading = true
-                                     }
-                                 }
-                             } else {
-                                 if fontSize > 14 { 
-                                      let wordCount = cleanLine.components(separatedBy: .whitespaces).count
-                                      if wordCount <= 20 {
-                                         isHeading = true
-                                      }
-                                 }
-                             }
-                             
-                             if isHeading {
-                                 logger.info("✅ FOUND SECTION: '\(cleanLine)' (Size: \(fontSize))")
-                                 pageHeadings.append(InternalSection(
-                                    title: cleanLine,
-                                    pageIndex: i,
-                                    wordOffsetOnPage: localWords.count,
-                                    isFromOutline: false
-                                 ))
+                             // 2. If it's in the extreme margins and is extremely short (e.g. just a page number)
+                             let wordCount = cleanLine.components(separatedBy: .whitespaces).count
+                             if wordCount <= 3 && cleanLine.rangeOfCharacter(from: CharacterSet.letters) == nil {
+                                 // logger.info("Excluding Page Number: '\(cleanLine)'")
+                                 continue
                              }
                         }
                     }
                     
-                    // 3. Process Words for RSVP
-                    let cleanedLine = removeCitations(from: line)
+                    // 3. Section Detection (Native)
+                    if !isUsingOutline {
+                         // A) LEARN STYLE (if not yet learned)
+                         if learnedHeadingFontSize == nil {
+                             let lowerLine = cleanLine.lowercased()
+                             for anchor in anchorKeywords {
+                                 if lowerLine.contains(anchor) {
+                                     let textOnly = lowerLine.replacingOccurrences(of: "^[0-9ivx]+\\.?\\s*", with: "", options: .regularExpression)
+                                     
+                                     if textOnly == anchor || textOnly.hasPrefix(anchor + " ") || textOnly.hasPrefix(anchor + ":") {
+                                         let wordCount = cleanLine.components(separatedBy: .whitespaces).count
+                                         if wordCount <= 10 {
+                                             learnedHeadingFontSize = lineFontSize
+                                             logger.error("🎯 LEARNED HEADING STYLE: Size \(lineFontSize) from '\(cleanLine)'")
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                         
+                         // B) DETECT USING LEARNED STYLE
+                         var isHeading = false
+                         if let targetSize = learnedHeadingFontSize {
+                             let sizeDiff = abs(lineFontSize - targetSize)
+                             let isSizeMatch = sizeDiff < 0.5
+                             
+                             if isSizeMatch {
+                                 let wordCount = cleanLine.components(separatedBy: .whitespaces).count
+                                 let endsWithPeriod = cleanLine.hasSuffix(".")
+                                 let isTitleCase = cleanLine.range(of: "^[0-9A-Z]", options: .regularExpression) != nil
+                                 
+                                 if wordCount <= 15 && !endsWithPeriod && isTitleCase {
+                                     isHeading = true
+                                 }
+                             }
+                         } else {
+                             if lineFontSize > 14 { 
+                                  let wordCount = cleanLine.components(separatedBy: .whitespaces).count
+                                  if wordCount <= 20 {
+                                     isHeading = true
+                                  }
+                             }
+                         }
+                         
+                         if isHeading {
+                             logger.info("✅ FOUND SECTION: '\(cleanLine)' (Size: \(lineFontSize))")
+                             pageHeadings.append(InternalSection(
+                                title: cleanLine,
+                                pageIndex: i,
+                                wordOffsetOnPage: localWords.count,
+                                isFromOutline: false
+                             ))
+                         }
+                    }
+                    
+                    // 4. Process Words for RSVP
+                    let cleanedLine = PDFParsingService.removeCitations(from: line)
                     let words = cleanedLine.components(separatedBy: .whitespacesAndNewlines)
                     
                     for word in words {

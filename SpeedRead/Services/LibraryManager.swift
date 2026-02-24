@@ -125,12 +125,18 @@ class LibraryManager: ObservableObject {
                 if let navPoints = navigationPoints {
                     documents[existingIndex].navigationPoints = navPoints
                 }
+                
+                // Move updated document to the front
+                let updatedDoc = documents.remove(at: existingIndex)
+                documents.insert(updatedDoc, at: 0)
+                
                 saveDocuments()
-                return documents[existingIndex]
+                return documents[0]
             } else {
                 // Content changed, reset progress
                 let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints)
-                documents[existingIndex] = newDoc
+                documents.remove(at: existingIndex)
+                documents.insert(newDoc, at: 0)
                 saveDocuments()
                 return newDoc
             }
@@ -146,12 +152,22 @@ class LibraryManager: ObservableObject {
     /// Update reading progress for a document
     func updateProgress(for documentId: UUID, wordIndex: Int, wpm: Double) {
         if let index = documents.firstIndex(where: { $0.id == documentId }) {
-            // Only save if progress actually changed
             let hasChanged = documents[index].currentWordIndex != wordIndex || documents[index].wordsPerMinute != wpm
+            
+            // Always update last read date when progress is updated
+            documents[index].lastReadDate = Date()
+            
             if hasChanged {
                 documents[index].currentWordIndex = wordIndex
                 documents[index].wordsPerMinute = wpm
-                documents[index].lastReadDate = Date()
+            }
+            
+            // Move updated document to the front
+            if index != 0 {
+                let updatedDoc = documents.remove(at: index)
+                documents.insert(updatedDoc, at: 0)
+                saveDocumentsAsync()
+            } else if hasChanged {
                 saveDocumentsAsync() // Use debounced async save
             }
         }
@@ -162,6 +178,13 @@ class LibraryManager: ObservableObject {
         if let index = documents.firstIndex(where: { $0.id == documentId }) {
             documents[index].currentWordIndex = 0
             documents[index].lastReadDate = Date()
+            
+            // Move updated document to the front
+            if index != 0 {
+                let updatedDoc = documents.remove(at: index)
+                documents.insert(updatedDoc, at: 0)
+            }
+            
             saveDocuments()
         }
     }
@@ -240,14 +263,14 @@ class LibraryManager: ObservableObject {
         // 1. Try loading from file
         if let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
-            documents = decoded
+            documents = decoded.sorted(by: { $0.lastReadDate > $1.lastReadDate })
         } else {
             // 2. Migration: Check UserDefaults (Fallback)
             let defaults = UserDefaults(suiteName: appGroupIdentifier) ?? .standard
             if let data = defaults.data(forKey: storageKey),
                let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
                 print("Migrating from UserDefaults to File Storage...")
-                documents = decoded
+                documents = decoded.sorted(by: { $0.lastReadDate > $1.lastReadDate })
                 saveDocuments()
             }
         }
@@ -319,7 +342,12 @@ class LibraryManager: ObservableObject {
                 // We add them to the top
                 for doc in newDocs {
                     // Avoid duplicates by ID or Name
-                    if !documents.contains(where: { $0.id == doc.id || ($0.name == doc.name && $0.content == doc.content) }) {
+                    if let existingIndex = documents.firstIndex(where: { $0.id == doc.id || ($0.name == doc.name && $0.content == doc.content) }) {
+                        var updatedDoc = documents[existingIndex]
+                        updatedDoc.lastReadDate = Date()
+                        documents.remove(at: existingIndex)
+                        documents.insert(updatedDoc, at: 0)
+                    } else {
                         documents.insert(doc, at: 0)
                     }
                 }
