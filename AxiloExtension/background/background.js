@@ -1,24 +1,19 @@
 // Axilo Background Script
 
-// Listen for the extension icon click
 chrome.action.onClicked.addListener((tab) => {
-  if (!tab.url.startsWith('http')) {
-    return; // Only runs on web pages
-  }
-
-  // Inject content script if not already present (or just send message)
-  // Since we registered content scripts in manifest, they are auto-injected.
-  // We just need to send a message to toggle the reader.
-  
-  chrome.tabs.sendMessage(tab.id, { action: "toggle_axilo" })
-    .catch(err => {
-      // If content script isn't ready or failed to load
-      console.warn("Axilo content script not ready:", err);
-      
-      // Fallback: Programmatically execute script if needed
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content/readability.js', 'content/content.js']
-      });
-    });
+    if (tab && tab.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "toggle_axilo" }).catch((e) => {
+            // If the content script isn't running yet, we could manually inject it here
+            // but manifest.json already sets content_scripts to run on <all_urls>
+            console.log("Axilo injection failed or already running:", e);
+            
+            // Fallback programmatic injection for stubborn sites
+            chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ["readability.js", "rsvp.js", "scroll.js", "content.js"]
+            }).then(() => {
+                chrome.tabs.sendMessage(tab.id, { action: "toggle_axilo" });
+            });
+        });
+    }
 });

@@ -9,6 +9,7 @@ struct HomeView: View {
     @Binding var currentDocument: ReadingDocument?
     @Binding var isReading: Bool
     @AppStorage("hasAddedSample") private var hasAddedSample = false
+    @State private var showInbox = false
     
     // Most recent document for Resume feature
     private var mostRecentDocument: ReadingDocument? {
@@ -21,9 +22,32 @@ struct HomeView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Settings button in top-right
+                // Inbox and Settings buttons in top
                 HStack {
+                    Button(action: { showInbox = true }) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: libraryManager.inboxDocuments.isEmpty ? "tray" : "tray.full")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(libraryManager.inboxDocuments.isEmpty ? settings.mutedTextColor : settings.accentColor)
+                                .padding(12)
+                            
+                            if !libraryManager.inboxDocuments.isEmpty {
+                                Text("\(libraryManager.inboxDocuments.count)")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(minWidth: 16, minHeight: 16)
+                                    .background(Color.red)
+                                    .clipShape(Circle())
+                                    .offset(x: -4, y: 6)
+                            }
+                        }
+                        .background(Color.clear)
+                    }
+                    .padding(.top, 8)
+                    .padding(.leading, 12)
+                    
                     Spacer()
+                    
                     Button(action: { showSettings = true }) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 18, weight: .light))
@@ -99,6 +123,13 @@ struct HomeView: View {
                 // Padding for bottom tab bar
                 Spacer().frame(height: 80)
             }
+        }
+        .sheet(isPresented: $showInbox) {
+            InboxView(
+                isPresented: $showInbox,
+                currentDocument: $currentDocument,
+                isReading: $isReading
+            )
         }
     }
     

@@ -13,6 +13,9 @@ struct AxiloApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    LibraryManager.shared.processSharedInbox()
+                }
         }
     }
 }

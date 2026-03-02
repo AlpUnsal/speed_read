@@ -16,16 +16,29 @@ struct PDFParsingService {
     /// - Returns: Tuple containing array of words and navigation points
     /// Extract clean list of words and navigation points from a PDF URL
     /// - Parameter url: URL of the PDF file
-    /// - Returns: Tuple containing full text and navigation points
-    static func parsePDF(url: URL) -> (text: String, navigationPoints: [NavigationPoint]) {
+    /// - Returns: Tuple containing full text, navigation points, and optional title
+    static func parsePDF(url: URL) -> (text: String, navigationPoints: [NavigationPoint], title: String?, figures: [FigureAnnotation], figureImages: [String: UIImage]) {
         guard let document = PDFDocument(url: url) else {
             logger.error("Failed to load PDF document")
-            return ("", [])
+            return ("", [], nil, [], [String: UIImage]())
+        }
+        
+        var pdfTitle: String? = nil
+        if let rawTitle = document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String {
+            let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                pdfTitle = trimmed
+            }
         }
         
         var fullText = ""
         var totalWordCount = 0
         var detectedSections: [InternalSection] = []
+        
+        // Figure detection state
+        var figures: [FigureAnnotation] = []
+        var figureImages: [String: UIImage] = [:]
+        let figurePattern = try? NSRegularExpression(pattern: "(?:Figure|Fig\\.|Exhibit)\\s+(\\d+[a-zA-Z]?)(?:[:\\.]\\s*(.{0,120}))?", options: [.caseInsensitive])
         
         // 1. Try to get sections from PDF Outline (Table of Contents)
         var isUsingOutline = false
@@ -100,6 +113,71 @@ struct PDFParsingService {
                 let pageHeight = pageBounds.height
                 let topMarginThreshold = pageBounds.maxY - (pageHeight * 0.12) // Top 12%
                 let bottomMarginThreshold = pageBounds.minY + (pageHeight * 0.12) // Bottom 12%
+
+                // --- HEURISTIC TITLE EXTRACTION (First Page Only) ---
+                if i == 0 && pdfTitle == nil {
+                    var maxFontSize: CGFloat = 0.0
+                    
+                    // First pass: find max font size
+                    for (idx, line) in lineStrings.enumerated() {
+                        let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if cleanLine.isEmpty || cleanLine.components(separatedBy: .whitespaces).count == 1 { continue }
+                        
+                        let bounds = boundsForLine[idx]
+                        
+                        // Ignore extreme margins where watermarks and page numbers live
+                        let isAtTopMargin = bounds.minY > (pageBounds.maxY - pageHeight * 0.05)
+                        let isAtBottomMargin = bounds.maxY < (pageBounds.minY + pageHeight * 0.05)
+                        let isAtLeftMargin = bounds.minX < (pageBounds.minX + pageBounds.width * 0.15)
+                        let isAtRightMargin = bounds.maxX > (pageBounds.maxX - pageBounds.width * 0.15)
+                        
+                        // The true title will usually be somewhere in the upper half, and not crammed into a margin
+                        let isInUpperHalf = bounds.minY > (pageBounds.minY + pageHeight * 0.4)
+                        
+                        if isAtTopMargin || isAtBottomMargin || isAtLeftMargin || isAtRightMargin || !isInUpperHalf {
+                            continue
+                        }
+                        
+                        let range = (pageText as NSString).range(of: line)
+                        if range.location != NSNotFound, range.length > 0 {
+                            if let font = attributedString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont {
+                                if font.pointSize > maxFontSize {
+                                    maxFontSize = font.pointSize
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Second pass: extract lines matching max font size, if it's significantly larger than body
+                    if maxFontSize > (bodyFontSize * 1.25) {
+                        var titleLines: [String] = []
+                        for (idx, line) in lineStrings.enumerated() {
+                            let cleanLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if cleanLine.isEmpty { continue }
+                            
+                            let bounds = boundsForLine[idx]
+                            // Title lines must be in the upper 70% of the page
+                            let isInUpperArea = bounds.minY > (pageBounds.minY + pageHeight * 0.3)
+                            if !isInUpperArea { continue }
+                            
+                            let range = (pageText as NSString).range(of: line)
+                            if range.location != NSNotFound, range.length > 0 {
+                                if let font = attributedString.attribute(.font, at: range.location, effectiveRange: nil) as? UIFont {
+                                    if abs(font.pointSize - maxFontSize) < 1.0 { // slightly more lenient epsilon
+                                        titleLines.append(cleanLine)
+                                    }
+                                }
+                            }
+                        }
+                        
+                        let extractedTitle = titleLines.joined(separator: " ")
+                        if !extractedTitle.isEmpty && extractedTitle.count < 300 {
+                            pdfTitle = extractedTitle
+                            logger.info("Heuristically extracted title: '\(extractedTitle)' (Size: \(maxFontSize))")
+                        }
+                    }
+                }
+                // ----------------------------------------------------
 
                 // Process lines, applying header/footer exclusion
                 for (index, line) in lineStrings.enumerated() {
@@ -210,6 +288,54 @@ struct PDFParsingService {
                 if !localWords.isEmpty {
                     fullText += localWords.joined(separator: " ") + " "
                 }
+                
+                // --- FIGURE DETECTION ---
+                // Check if this page contains figure references ("Figure N", "Fig. N", "Exhibit N")
+                if let figurePattern = figurePattern {
+                    let pageTextForFigures = lineStrings.joined(separator: " ")
+                    let figureRange = NSRange(pageTextForFigures.startIndex..., in: pageTextForFigures)
+                    let matches = figurePattern.matches(in: pageTextForFigures, options: [], range: figureRange)
+                    
+                    for match in matches {
+                        // Extract figure number and optional caption
+                        let figureNumRange = match.range(at: 1)
+                        
+                        if let swiftNumRange = Range(figureNumRange, in: pageTextForFigures) {
+                            let figureNum = String(pageTextForFigures[swiftNumRange])
+                            
+                            // Build the full caption
+                            let fullMatchRange = match.range(at: 0)
+                            var fullCaption: String? = nil
+                            if let swiftFullRange = Range(fullMatchRange, in: pageTextForFigures) {
+                                fullCaption = String(pageTextForFigures[swiftFullRange])
+                            }
+                            
+                            // Check if we already have this figure (avoid duplicates)
+                            let figureKey = "figure_\(figureNum)"
+                            if !figures.contains(where: { $0.imageFileName == "\(figureKey).png" }) {
+                                let imageFileName = "\(figureKey).png"
+                                // Render just the figure region (above the caption), not the whole page
+                                if let figureImage = renderFigureRegion(
+                                    page: page,
+                                    captionText: fullCaption ?? figureNum,
+                                    lineStrings: lineStrings,
+                                    boundsForLine: boundsForLine,
+                                    maxWidth: 900
+                                ) {
+                                    figureImages[imageFileName] = figureImage
+                                    let figure = FigureAnnotation(
+                                        wordIndex: currentWordCount,
+                                        caption: fullCaption,
+                                        imageFileName: imageFileName
+                                    )
+                                    figures.append(figure)
+                                    logger.info("Extracted figure: \(fullCaption ?? figureKey) at word index \(currentWordCount)")
+                                }
+                            }
+                        }
+                    }
+                }
+                // --- END FIGURE DETECTION ---
                 
                 totalWordCount += localWords.count
                 currentWordCount += localWords.count
@@ -374,7 +500,7 @@ struct PDFParsingService {
         }
         
         // logger.info("Returning Result with \(finalNavigationPoints.count) Nav Points and Text Length: \(fullText.count)")
-        return (fullText, finalNavigationPoints)
+        return (fullText, finalNavigationPoints, pdfTitle, figures, figureImages)
     }
 
     // Internal struct
@@ -394,6 +520,164 @@ struct PDFParsingService {
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
         }
         return result
+    }
+    
+    /// Render just the figure region from a page by locating the caption line and cropping
+    /// the area immediately above it (where the figure image lives), then trimming whitespace.
+    private static func renderFigureRegion(
+        page: PDFPage,
+        captionText: String,
+        lineStrings: [String],
+        boundsForLine: [CGRect],
+        maxWidth: CGFloat
+    ) -> UIImage? {
+        let pageBounds = page.bounds(for: .cropBox)
+        let scale = min(maxWidth / pageBounds.width, 2.0)
+        let fullSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
+        
+        // ------------------------------------------------------------------
+        // 1. Find caption Y position in PDF coords (bottom-up)
+        // ------------------------------------------------------------------
+        var captionPDFY: CGFloat? = nil
+        // First try: match via the lineStrings+boundsForLine we already have
+        let captionLower = captionText.lowercased()
+        for (idx, line) in lineStrings.enumerated() {
+            if line.lowercased().contains(captionLower.prefix(20)) && boundsForLine[idx] != .zero {
+                captionPDFY    = boundsForLine[idx].minY   // bottom of caption line
+                break
+            }
+        }
+        
+        // Fallback: try PDFKit text search
+        if captionPDFY == nil {
+            let pageText = page.attributedString?.string ?? ""
+            let searchStr = String(captionText.prefix(30))
+            if let range = pageText.range(of: searchStr, options: .caseInsensitive) {
+                let nsRange = NSRange(range, in: pageText)
+                if let sel = page.selection(for: nsRange) {
+                    let b = sel.bounds(for: page)
+                    captionPDFY    = b.minY
+                }
+            }
+        }
+        
+        // ------------------------------------------------------------------
+        // 2. Render the full page
+        // ------------------------------------------------------------------
+        // Force scale=1.0 so CGImage pixels match our point-based crop coordinates
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0
+        let renderer = UIGraphicsImageRenderer(size: fullSize, format: format)
+        let fullImage = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: fullSize))
+            ctx.cgContext.translateBy(x: 0, y: fullSize.height)
+            ctx.cgContext.scaleBy(x: scale, y: -scale)
+            page.draw(with: .cropBox, to: ctx.cgContext)
+        }
+        
+        // ------------------------------------------------------------------
+        // 3. Convert caption Y to image coordinates and crop the figure strip
+        // ------------------------------------------------------------------
+        //  PDF coords:  Y=0 at bottom, Y=pageHeight at top
+        //  Image coords: Y=0 at top,   Y=fullSize.height at bottom
+        //  Conversion: imageY = (pageHeight - pdfY) * scale
+        var stripEndY: CGFloat = fullSize.height  // how far down in image to crop (default: full page)
+        
+        if let pdfY = captionPDFY {
+            // We want everything ABOVE the caption — i.e., in image coords, rows 0 ..< stripEndY
+            // The bottom of the caption line in PDF coords = pdfY
+            // In image coords that is at row: (pageHeight - pdfY) * scale
+            stripEndY = (pageBounds.height - pdfY) * scale
+            // Add a small margin (keep the caption label visible for context)
+            stripEndY = min(stripEndY + 24 * scale, fullSize.height)
+        }
+        
+        // Safety: never crop to nothing
+        if stripEndY < 40 { return fullImage }
+        
+        let stripRect = CGRect(x: 0, y: 0, width: fullSize.width, height: stripEndY)
+        
+        // ------------------------------------------------------------------
+        // 4. Pixel-scan the strip to trim leading/trailing whitespace rows
+        //    Works for any PDF: scanned, vector, embedded bitmap, etc.
+        // ------------------------------------------------------------------
+        return cropToContentBounds(image: fullImage, within: stripRect)
+    }
+    
+    /// Crops an image to its non-white content bounding box within a given region.
+    /// Scans rows and columns and trims whitespace (pixels brighter than threshold).
+    private static func cropToContentBounds(image: UIImage, within region: CGRect) -> UIImage? {
+        guard let cgImage = image.cgImage else { return image }
+        let imgWidth  = cgImage.width
+        let imgHeight = cgImage.height
+        
+        // Clamp region to actual image
+        let clamp = region.intersection(CGRect(x: 0, y: 0, width: imgWidth, height: imgHeight))
+        guard !clamp.isNull, clamp.width > 0, clamp.height > 0 else { return nil }
+        guard let cropped = cgImage.cropping(to: clamp) else { return nil }
+        
+        let w = Int(clamp.width)
+        let h = Int(clamp.height)
+        
+        // Create an RGBA context so we have a predictable pixel layout
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)
+        guard let ctx = CGContext(
+            data: nil,
+            width: w, height: h,
+            bitsPerComponent: 8,
+            bytesPerRow: w * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo.rawValue
+        ) else { return UIImage(cgImage: cropped) }
+        
+        ctx.setFillColor(UIColor.white.cgColor)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: w, height: h))
+        
+        guard let data = ctx.data else { return UIImage(cgImage: cropped) }
+        let ptr = data.bindMemory(to: UInt8.self, capacity: w * h * 4)
+        
+        let whiteThr: UInt8 = 242  // pixel must be brighter than this to count as "white"
+        
+        func isWhiteRow(_ row: Int) -> Bool {
+            for col in 0..<w {
+                let off = (row * w + col) * 4
+                if ptr[off] < whiteThr || ptr[off+1] < whiteThr || ptr[off+2] < whiteThr { return false }
+            }
+            return true
+        }
+        func isWhiteCol(_ col: Int) -> Bool {
+            for row in 0..<h {
+                let off = (row * w + col) * 4
+                if ptr[off] < whiteThr || ptr[off+1] < whiteThr || ptr[off+2] < whiteThr { return false }
+            }
+            return true
+        }
+        
+        var top    = 0
+        var bottom = h - 1
+        var left   = 0
+        var right  = w - 1
+        
+        while top    <= bottom && isWhiteRow(top)    { top    += 1 }
+        while bottom >= top    && isWhiteRow(bottom) { bottom -= 1 }
+        while left   <= right  && isWhiteCol(left)   { left   += 1 }
+        while right  >= left   && isWhiteCol(right)  { right  -= 1 }
+        
+        guard top < bottom, left < right else { return UIImage(cgImage: cropped) }
+        
+        // Add small padding
+        let pad = 8
+        top    = max(0, top - pad)
+        bottom = min(h - 1, bottom + pad)
+        left   = max(0, left - pad)
+        right  = min(w - 1, right + pad)
+        
+        let finalRect = CGRect(x: left, y: top, width: right - left, height: bottom - top)
+        guard let finalCG = cropped.cropping(to: finalRect) else { return UIImage(cgImage: cropped) }
+        return UIImage(cgImage: finalCG)
     }
     
     private static func extractSectionsFromOutline(root: PDFOutline, document: PDFDocument) -> [InternalSection] {

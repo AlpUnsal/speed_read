@@ -21,12 +21,34 @@ struct SettingsView: View {
                 
                 // Section 1: Visuals
                 Section(header: Text("Visuals")) {
-                    Picker("Theme", selection: $settings.theme) {
-                        ForEach(AppTheme.allCases) { theme in
-                            Text(theme.rawValue).tag(theme)
+                    HStack {
+                        Picker("Theme", selection: $settings.theme) {
+                            ForEach([AppTheme.cream, .white, .grey, .black]) { theme in
+                                Text(theme.rawValue).tag(theme)
+                            }
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        
+                        Menu {
+                            ForEach([AppTheme.sage, .iceBlue, .cherry, .lilac]) { theme in
+                                Button(action: {
+                                    settings.theme = theme
+                                }) {
+                                    HStack {
+                                        Text(theme.rawValue)
+                                        if settings.theme == theme {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "circle.grid.2x2")
+                                .font(.system(size: 16))
+                                .foregroundColor([AppTheme.sage, .iceBlue, .cherry, .lilac].contains(settings.theme) ? settings.accentColor : settings.mutedTextColor)
+                                .padding(.leading, 8)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
                     
                     Toggle("Focus Lines", isOn: $settings.showORPEmphasisLines)
                         .font(.system(size: 16))

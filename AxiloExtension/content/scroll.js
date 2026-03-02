@@ -43,19 +43,10 @@ class AxiloScrollEngine {
         if (!this.isPlaying || !this.container) return;
 
         const now = performance.now();
-        const deltaTime = (now - this.lastTime) / 1000; // seconds
+        const deltaTime = (now - this.lastTime) / 1000;
         this.lastTime = now;
 
-        // Calculate pixels to scroll
-        // WPM to Pixels/sec? 
-        // Heuristic: Average line height ~ 30px. Average words per line ~ 10-12.
-        // so 300 WPM = 30 lines/min = 0.5 lines/sec = 15px/sec? 
-        // Let's make it adjustable.
-        // A better approximation might be: speedFactor * (WPM / 60)
-        
-        const speedFactor = 5; // pixels per word?
-        const pixelsPerSecond = (this.wpm / 60) * 20; // Rough guess: 20px per second for 60 WPM
-
+        const pixelsPerSecond = (this.wpm / 60) * 20;
         this.scrollAccumulator += pixelsPerSecond * deltaTime;
 
         if (this.scrollAccumulator >= 1) {
@@ -64,14 +55,10 @@ class AxiloScrollEngine {
             this.scrollAccumulator -= pixels;
         }
 
-        // Check if bottom reached
         if (this.container.scrollTop + this.container.clientHeight >= this.container.scrollHeight) {
             this.pause();
-            // onComplete callback?
         }
 
         this.animationFrame = requestAnimationFrame(() => this.frameLoop());
     }
 }
-
-window.AxiloScrollEngine = AxiloScrollEngine;

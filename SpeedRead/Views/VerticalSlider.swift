@@ -11,22 +11,24 @@ struct VerticalSlider: View {
     private let thumbSize: CGFloat = 24
     private let sliderHeight: CGFloat = 200
     
+    @ObservedObject private var settings = SettingsManager.shared
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
                 // Track background
                 RoundedRectangle(cornerRadius: trackWidth / 2)
-                    .fill(Color(hex: "3A3A3A"))
+                    .fill(settings.progressBarBackgroundColor)
                     .frame(width: trackWidth, height: sliderHeight)
                 
                 // Active track (from bottom to thumb)
                 RoundedRectangle(cornerRadius: trackWidth / 2)
-                    .fill(Color(hex: "E63946").opacity(0.6))
+                    .fill(settings.accentColor.opacity(0.6))
                     .frame(width: trackWidth, height: thumbOffset)
                 
                 // Thumb
                 Circle()
-                    .fill(Color(hex: "E5E5E5"))
+                    .fill(settings.textColor)
                     .frame(width: thumbSize, height: thumbSize)
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                     .offset(y: -thumbOffset + thumbSize / 2)
@@ -68,16 +70,18 @@ struct VerticalSliderWithLabel: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     
+    @ObservedObject private var settings = SettingsManager.shared
+    
     var body: some View {
         VStack(spacing: 16) {
             // WPM label at top
             Text("\(Int(value))")
                 .font(.custom("EBGaramond-Regular", size: 16))
-                .foregroundColor(Color(hex: "888888"))
+                .foregroundColor(settings.secondaryTextColor)
             
             Text("WPM")
                 .font(.custom("EBGaramond-Regular", size: 12))
-                .foregroundColor(Color(hex: "666666"))
+                .foregroundColor(settings.mutedTextColor)
             
             VerticalSlider(value: $value, range: range)
             
@@ -85,13 +89,13 @@ struct VerticalSliderWithLabel: View {
             VStack(spacing: 4) {
                 Image(systemName: "hare.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(settings.mutedTextColor)
                 
                 Spacer().frame(height: 160)
                 
                 Image(systemName: "tortoise.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(Color(hex: "555555"))
+                    .foregroundColor(settings.mutedTextColor)
             }
             .opacity(0) // Hidden but preserves layout alignment
         }

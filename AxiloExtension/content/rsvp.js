@@ -5,14 +5,106 @@ class AxiloRSVPEngine {
         this.wpm = 300;
         this.isPlaying = false;
         this.timer = null;
-        this.onWordUpdate = () => {}; // Callback for UI
+        this.onWordUpdate = () => {};
         this.onComplete = () => {};
     }
 
     loadText(text) {
-        // Simple splitting for now. Improve later to handle punctuation pauses.
-        this.words = text.trim().split(/\s+/);
+        this.words = this.tokenize(text);
         this.currentIndex = 0;
+    }
+
+    tokenize(text) {
+        let components = text.trim().split(/\s+/);
+        let words = [];
+        for (let i = 0; i < components.length; i++) {
+            let component = components[i].trim();
+            if (!component) continue;
+            let parts = this.splitOnPunctuation(component);
+            words.push(...parts);
+        }
+        return words;
+    }
+
+    splitOnPunctuation(text) {
+        if (text.length < 2) return [text];
+        
+        let result = [];
+        let currentToken = "";
+        let i = 0;
+        
+        while (i < text.length) {
+            let char = text[i];
+            
+            if (char === "-" && i + 1 < text.length && text[i+1] === "-") {
+                currentToken += "--";
+                result.push(currentToken);
+                currentToken = "";
+                i += 2;
+                continue;
+            }
+            
+            if (char === "." && i + 2 < text.length && text[i+1] === "." && text[i+2] === ".") {
+                currentToken += "...";
+                result.push(currentToken);
+                currentToken = "";
+                i += 3;
+                continue;
+            }
+            
+            if (char === "\u2014" || char === "\u2013" || char === "\u2026") {
+                currentToken += char;
+                result.push(currentToken);
+                currentToken = "";
+                i += 1;
+                continue;
+            }
+            
+            currentToken += char;
+            i += 1;
+        }
+        
+        if (currentToken.length > 0) {
+            result.push(currentToken);
+        }
+        
+        return result.filter(w => w.length > 0);
+    }
+
+    getPauseMultiplier(word) {
+        const closingPunctuation = new Set(["\"", "\u201D", "\u2019", "'", ")", "]", "}", "\u201C", "\u2018"]);
+        let meaningfulChar = null;
+        
+        for (let i = word.length - 1; i >= 0; i--) {
+            if (!closingPunctuation.has(word[i])) {
+                meaningfulChar = word[i];
+                break;
+            }
+        }
+        
+        const speedFactor = Math.min(1.5, Math.max(0.3, 300 / this.wpm));
+        
+        if (meaningfulChar) {
+            if ([".", "!", "?"].includes(meaningfulChar)) {
+                return 1.0 + (0.65 * speedFactor);
+            }
+            if ([",", ";", ":"].includes(meaningfulChar)) {
+                return 1.0 + (0.50 * speedFactor);
+            }
+            if (["\u2014", "\u2013"].includes(meaningfulChar)) {
+                return 1.0 + (0.55 * speedFactor);
+            }
+            if (word.includes("/")) {
+                return 1.0 + (0.50 * speedFactor);
+            }
+            return 1.0;
+        }
+        
+        if (word.includes("/")) {
+            return 1.0 + (0.50 * speedFactor);
+        }
+        
+        return 1.0;
     }
 
     play() {
@@ -51,17 +143,15 @@ class AxiloRSVPEngine {
 
         this.updateDisplay();
 
-        // Calculate delay based on WPM
-        // 60 seconds / WPM = seconds per word
-        // * 1000 = ms per word
-        const msPerWord = (60 / this.wpm) * 1000;
-        
-        // TODO: Add extra delay for punctuation here
+        const baseDelayMs = (60 / this.wpm) * 1000;
+        const currentWord = this.words[this.currentIndex] || "";
+        const multiplier = this.getPauseMultiplier(currentWord);
+        const nextDelayMs = baseDelayMs * multiplier;
 
         this.timer = setTimeout(() => {
             this.currentIndex++;
             this.scheduleNextWord();
-        }, msPerWord);
+        }, nextDelayMs);
     }
 
     updateDisplay() {
@@ -70,16 +160,13 @@ class AxiloRSVPEngine {
         this.onWordUpdate(word, orp);
     }
 
-    // Optimal Recognition Point Logic
     calculateORP(word) {
         const length = word.length;
         let index = 0;
         
-        if (length <= 1) index = 0;
-        else if (length <= 5) index = 1;
-        else if (length <= 9) index = 2;
-        else if (length <= 13) index = 3;
-        else index = 4;
+        if (length > 1) {
+            index = 1; // Always highlight the second letter
+        }
 
         return {
             left: word.substring(0, index),
@@ -88,6 +175,3 @@ class AxiloRSVPEngine {
         };
     }
 }
-
-// Attach to window so content.js can find it
-window.AxiloRSVPEngine = AxiloRSVPEngine;

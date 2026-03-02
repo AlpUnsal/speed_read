@@ -13,11 +13,24 @@ struct WordDisplayView: View {
     // Colors
     private var textColor: Color {
         switch theme {
-        case .cream, .white: return Color(hex: "1A1A1A")
-        default: return Color(hex: "E5E5E5")
+        case .black, .grey: return Color(hex: "E5E5E5")
+        case .sage: return Color(hex: "758B7D")
+        case .iceBlue: return Color(hex: "6A8294")
+        case .cherry: return Color(hex: "9E747A")
+        case .lilac: return Color(hex: "816B99")
+        default: return Color(hex: "1A1A1A")
         }
     }
-    private let highlightColor = Color(hex: "E63946")
+    
+    private var highlightColor: Color {
+        switch theme {
+        case .sage: return Color(hex: "1A4D2E")
+        case .iceBlue: return Color(hex: "134B6E")
+        case .cherry: return Color(hex: "8A2533")
+        case .lilac: return Color(hex: "4E1D7B")
+        default: return Color(hex: "E63946")
+        }
+    }
     
     // Animation state
     @State private var isVisible = false

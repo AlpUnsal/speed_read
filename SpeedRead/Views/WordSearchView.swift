@@ -175,6 +175,10 @@ struct WordSearchView: View {
         case .grey: return Color(hex: "2A2A2A")
         case .cream: return Color(hex: "FFFCE2") // Warm light cream
         case .white: return Color(hex: "F0F0F0")
+        case .sage: return Color(hex: "C2E2C9")
+        case .iceBlue: return Color(hex: "99D5E0")
+        case .cherry: return Color(hex: "EFAAAA")
+        case .lilac: return Color(hex: "D6B0D6")
         }
     }
 }
@@ -249,6 +253,10 @@ private struct SearchResultRow: View {
         case .grey: return Color(hex: "2A2A2A")
         case .cream: return Color(hex: "F4F1C9") // Slightly darker cream for current selection
         case .white: return Color(hex: "EEEEEE")
+        case .sage: return Color(hex: "C2E2C9")
+        case .iceBlue: return Color(hex: "99D5E0")
+        case .cherry: return Color(hex: "EFAAAA")
+        case .lilac: return Color(hex: "D6B0D6")
         }
     }
 }

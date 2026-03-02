@@ -2,9 +2,16 @@ import SwiftUI
 
 /// Modal view showing all navigation points with progress
 struct ChapterListView: View {
+    enum Tab {
+        case sections
+        case figures
+    }
+    
     @ObservedObject var viewModel: RSVPViewModel
     @ObservedObject private var settings = SettingsManager.shared
     @Binding var isPresented: Bool
+    
+    @State private var selectedTab: Tab = .sections
     
     var body: some View {
         NavigationView {
@@ -12,48 +19,95 @@ struct ChapterListView: View {
                 settings.backgroundColor
                     .ignoresSafeArea()
                 
-                if viewModel.navigationPoints.isEmpty {
-                    VStack(spacing: 12) {
-                        Text("No chapters available")
-                            .font(.custom("EBGaramond-Regular", size: 16))
-                            .foregroundColor(secondaryTextColor)
+                VStack(spacing: 0) {
+                    // Segmented Picker
+                    Picker("View", selection: $selectedTab) {
+                        Text("Sections").tag(Tab.sections)
+                        Text("Figures").tag(Tab.figures)
                     }
-                } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(viewModel.navigationPoints.enumerated()), id: \.element.id) { index, point in
-                                    ChapterRow(
-                                        point: point,
-                                        index: index,
-                                        isCurrent: point.id == viewModel.currentNavigationPoint?.id,
-                                        progressInChapter: viewModel.currentNavigationPoint?.id == point.id 
-                                            ? point.progress(at: viewModel.currentIndex) 
-                                            : (viewModel.currentIndex >= point.wordEndIndex ? 1.0 : 0.0),
-                                        onTap: {
-                                            viewModel.jumpToNavigationPoint(point)
-                                            isPresented = false
+                    .pickerStyle(SegmentedPickerStyle())
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(settings.backgroundColor)
+                    
+                    if selectedTab == .sections {
+                        if viewModel.navigationPoints.isEmpty {
+                            Spacer()
+                            VStack(spacing: 12) {
+                                Text("No chapters available")
+                                    .font(.custom("EBGaramond-Regular", size: 16))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                            Spacer()
+                        } else {
+                            ScrollViewReader { proxy in
+                                ScrollView {
+                                    LazyVStack(spacing: 0) {
+                                        ForEach(Array(viewModel.navigationPoints.enumerated()), id: \.element.id) { index, point in
+                                            ChapterRow(
+                                                point: point,
+                                                index: index,
+                                                isCurrent: point.id == viewModel.currentNavigationPoint?.id,
+                                                progressInChapter: viewModel.currentNavigationPoint?.id == point.id 
+                                                    ? point.progress(at: viewModel.currentIndex) 
+                                                    : (viewModel.currentIndex >= point.wordEndIndex ? 1.0 : 0.0),
+                                                onTap: {
+                                                    viewModel.jumpToNavigationPoint(point)
+                                                    isPresented = false
+                                                }
+                                            )
+                                            .id(point.id)
+                                            
+                                            if index < viewModel.navigationPoints.count - 1 {
+                                                Divider()
+                                                    .background(dividerColor)
+                                            }
                                         }
-                                    )
-                                    .id(point.id)
-                                    
-                                    if index < viewModel.navigationPoints.count - 1 {
-                                        Divider()
-                                            .background(dividerColor)
+                                    }
+                                    .padding(.vertical, 8)
+                                }
+                                .onAppear {
+                                    if let current = viewModel.currentNavigationPoint {
+                                        proxy.scrollTo(current.id, anchor: .center)
                                     }
                                 }
                             }
-                            .padding(.vertical, 8)
                         }
-                        .onAppear {
-                            if let current = viewModel.currentNavigationPoint {
-                                proxy.scrollTo(current.id, anchor: .center)
+                    } else {
+                        // Figures Tab
+                        if viewModel.figureAnnotations.isEmpty {
+                            Spacer()
+                            VStack(spacing: 12) {
+                                Text("No figures available")
+                                    .font(.custom("EBGaramond-Regular", size: 16))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                            Spacer()
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(Array(viewModel.figureAnnotations.enumerated()), id: \.element.id) { index, figure in
+                                        FigureRow(
+                                            figure: figure,
+                                            onTap: {
+                                                viewModel.showKnownFigure(figure)
+                                                isPresented = false
+                                            }
+                                        )
+                                        
+                                        if index < viewModel.figureAnnotations.count - 1 {
+                                            Divider()
+                                                .background(dividerColor)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 8)
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("Sections")
+            .navigationTitle(selectedTab == .sections ? "Sections" : "Figures")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -88,6 +142,10 @@ struct ChapterListView: View {
         switch settings.theme {
         case .cream: return Color(hex: "EAE8BD")
         case .white: return Color(hex: "E0E0E0")
+        case .sage: return Color(hex: "A9D0B3")
+        case .iceBlue: return Color(hex: "7AC0CD")
+        case .cherry: return Color(hex: "E2908F")
+        case .lilac: return Color(hex: "C69CC6")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -205,6 +263,10 @@ private struct ChapterRow: View {
         switch settings.theme {
         case .cream: return Color(hex: "EAE8BD")
         case .white: return Color(hex: "E0E0E0")
+        case .sage: return Color(hex: "A9D0B3")
+        case .iceBlue: return Color(hex: "7AC0CD")
+        case .cherry: return Color(hex: "E2908F")
+        case .lilac: return Color(hex: "C69CC6")
         default: return Color(hex: "2A2A2A")
         }
     }
@@ -219,6 +281,107 @@ private struct ChapterRow: View {
         case .grey: return Color(hex: "252525")
         case .cream: return Color(hex: "F4F1C9")
         case .white: return Color(hex: "F5F5F5")
+        case .sage: return Color(hex: "C2E2C9")
+        case .iceBlue: return Color(hex: "99D5E0")
+        case .cherry: return Color(hex: "EFAAAA")
+        case .lilac: return Color(hex: "D6B0D6")
+        }
+    }
+}
+
+// MARK: - Figure Row
+
+private struct FigureRow: View {
+    let figure: FigureAnnotation
+    let onTap: () -> Void
+    
+    @ObservedObject private var settings = SettingsManager.shared
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                // Figure icon placeholder
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(iconBackgroundColor)
+                        .frame(width: 44, height: 44)
+                    
+                    Image(systemName: "photo")
+                        .font(.system(size: 18, weight: .light))
+                        .foregroundColor(secondaryTextColor)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    // Extract figure title from caption if possible (e.g. "Figure 1")
+                    let titleText = extractFigureTitle(from: figure.caption)
+                    
+                    Text(titleText)
+                        .font(.custom("EBGaramond-Regular", size: 16))
+                        .foregroundColor(settings.textColor)
+                    
+                    if let caption = figure.caption {
+                        Text(caption)
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color.clear)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    // Simple heuristic to get "Figure 1" or "Exhibit A" for the title
+    private func extractFigureTitle(from caption: String?) -> String {
+        guard let text = caption else { return "Figure" }
+        let components = text.components(separatedBy: CharacterSet(charactersIn: ":.- "))
+        if components.count >= 2 {
+            let firstWord = components[0].lowercased()
+            if firstWord == "figure" || firstWord == "fig" || firstWord == "exhibit" {
+                // Attempt to grab the first two words roughly
+                let words = text.split(separator: " ")
+                if words.count >= 2 {
+                    let secondWord = words[1].trimmingCharacters(in: CharacterSet(charactersIn: ":.-"))
+                    return "\(words[0]) \(secondWord)"
+                }
+            }
+        }
+        return "Figure" // Fallback
+    }
+    
+    private var iconBackgroundColor: Color {
+        switch settings.theme {
+        case .cream: return Color(hex: "EAE8BD")
+        case .white: return Color(hex: "E0E0E0")
+        case .sage: return Color(hex: "A9D0B3")
+        case .iceBlue: return Color(hex: "7AC0CD")
+        case .cherry: return Color(hex: "E2908F")
+        case .lilac: return Color(hex: "C69CC6")
+        default: return Color(hex: "2A2A2A")
+        }
+    }
+    
+    private var secondaryTextColor: Color {
+        switch settings.theme {
+        case .cream, .white: return Color(hex: "444444")
+        default: return Color(hex: "AAAAAA")
+        }
+    }
+    
+    private var tertiaryTextColor: Color {
+        switch settings.theme {
+        case .cream, .white: return Color(hex: "888888")
+        default: return Color(hex: "666666")
         }
     }
 }

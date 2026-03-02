@@ -39,7 +39,7 @@ struct CustomTabBar: View {
             // Liquid Glass Effect
             Group {
                 if #available(iOS 15.0, *) {
-                    settings.cardBackgroundColor.opacity(0.8)
+                    settings.cardBackgroundColor.opacity(0.15)
                         .background(.ultraThinMaterial)
                 } else {
                     settings.cardBackgroundColor.opacity(0.95)

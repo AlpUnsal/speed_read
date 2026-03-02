@@ -88,6 +88,15 @@
 		5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD12F158C9000135432 /* SettingsView.swift */; };
 		5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA37AD02F158C9000135432 /* ParagraphView.swift */; };
 		5DA37AD82F18286000135432 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 5DA37AD72F18286000135432 /* ZIPFoundation */; };
+		5DB54E2D2F5233F800D9820C /* FigureAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E2C2F5233F800D9820C /* FigureAnnotation.swift */; };
+		5DB54E2E2F5233F800D9820C /* FigureAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E2C2F5233F800D9820C /* FigureAnnotation.swift */; };
+		5DB54E2F2F5233F800D9820C /* FigureAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E2C2F5233F800D9820C /* FigureAnnotation.swift */; };
+		5DB54E5D2F55139B00D9820C /* FolderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E5C2F55139B00D9820C /* FolderDetailView.swift */; };
+		5DB54E5E2F55139B00D9820C /* FolderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E5C2F55139B00D9820C /* FolderDetailView.swift */; };
+		5DB54E5F2F55139B00D9820C /* FolderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E5C2F55139B00D9820C /* FolderDetailView.swift */; };
+		5DB54E612F5513A100D9820C /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E602F5513A100D9820C /* InboxView.swift */; };
+		5DB54E622F5513A100D9820C /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E602F5513A100D9820C /* InboxView.swift */; };
+		5DB54E632F5513A100D9820C /* InboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB54E602F5513A100D9820C /* InboxView.swift */; };
 		5DE63D4B2F4A0C5C005E9F9A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE63D4A2F4A0C5C005E9F9A /* HomeView.swift */; };
 		5DE63D4C2F4A0C5C005E9F9A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE63D4A2F4A0C5C005E9F9A /* HomeView.swift */; };
 		5DE63D4D2F4A0C5C005E9F9A /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE63D4A2F4A0C5C005E9F9A /* HomeView.swift */; };
@@ -110,6 +119,9 @@
 		77000000111111110000000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001A /* Assets.xcassets */; };
 		77000000111111110000000B /* EBGaramond-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001B /* EBGaramond-Regular.ttf */; };
 		77000000111111110000000C /* SampleText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001D /* SampleText.swift */; };
+		770000001111111100000008 /* ReadingDocument+Transferable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000018 /* ReadingDocument+Transferable.swift */; };
+		770000001111111100000009 /* ReadingDocument+Transferable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000018 /* ReadingDocument+Transferable.swift */; };
+		77000000111111110000000D /* ReadingDocument+Transferable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770000001111111100000018 /* ReadingDocument+Transferable.swift */; };
 		77000000111111110000000E /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77000000111111110000001F /* LibraryView.swift */; };
 /* End PBXBuildFile section */
 
@@ -178,6 +190,9 @@
 		5D72018A2F366F12003D07D8 /* OrientationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationManager.swift; sourceTree = "<group>"; };
 		5DA37AD02F158C9000135432 /* ParagraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParagraphView.swift; sourceTree = "<group>"; };
 		5DA37AD12F158C9000135432 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		5DB54E2C2F5233F800D9820C /* FigureAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FigureAnnotation.swift; sourceTree = "<group>"; };
+		5DB54E5C2F55139B00D9820C /* FolderDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderDetailView.swift; sourceTree = "<group>"; };
+		5DB54E602F5513A100D9820C /* InboxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxView.swift; sourceTree = "<group>"; };
 		5DE63D4A2F4A0C5C005E9F9A /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		5DE63D4E2F4A0C6A005E9F9A /* ExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreView.swift; sourceTree = "<group>"; };
 		5DE63D522F4A0C79005E9F9A /* CustomTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTabBar.swift; sourceTree = "<group>"; };
@@ -194,6 +209,7 @@
 		77000000111111110000001C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		77000000111111110000001D /* SampleText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleText.swift; sourceTree = "<group>"; };
 		77000000111111110000001F /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		770000001111111100000018 /* ReadingDocument+Transferable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ReadingDocument+Transferable.swift"; sourceTree = "<group>"; };
 		770000001111111100000100 /* Axilo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Axilo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -258,6 +274,7 @@
 			isa = PBXGroup;
 			children = (
 				5D58F2CD2F33AEE000E08ACB /* NavigationPoint.swift */,
+				5DB54E2C2F5233F800D9820C /* FigureAnnotation.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -332,6 +349,8 @@
 				5DE63D4A2F4A0C5C005E9F9A /* HomeView.swift */,
 				5DE63D4E2F4A0C6A005E9F9A /* ExploreView.swift */,
 				5DE63D522F4A0C79005E9F9A /* CustomTabBar.swift */,
+				5DB54E5C2F55139B00D9820C /* FolderDetailView.swift */,
+				5DB54E602F5513A100D9820C /* InboxView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -362,6 +381,7 @@
 				5D58F2DF2F3638A000E08ACB /* PDFParsingService.swift */,
 				5D72018A2F366F12003D07D8 /* OrientationManager.swift */,
 				5DE63D562F4A0E2A005E9F9A /* BookSearchService.swift */,
+				770000001111111100000018 /* ReadingDocument+Transferable.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -531,6 +551,7 @@
 				5D58F2B72F33ADDF00E08ACB /* PageChunker.swift in Sources */,
 				5D58F2B82F33ADDF00E08ACB /* LibraryManager.swift in Sources */,
 				5DE63D4D2F4A0C5C005E9F9A /* HomeView.swift in Sources */,
+				5DB54E2E2F5233F800D9820C /* FigureAnnotation.swift in Sources */,
 				5D58F2B92F33ADDF00E08ACB /* DocumentParser.swift in Sources */,
 				5D58F2BA2F33ADDF00E08ACB /* TextTokenizer.swift in Sources */,
 				5D58F2BB2F33ADDF00E08ACB /* HTMLHelper.swift in Sources */,
@@ -548,8 +569,10 @@
 				5D58F2C12F33ADDF00E08ACB /* ThumbnailManager.swift in Sources */,
 				5D58F2952F33ADB400E08ACB /* LibraryView.swift in Sources */,
 				5D58F2D12F33AEE000E08ACB /* NavigationPoint.swift in Sources */,
+				5DB54E5F2F55139B00D9820C /* FolderDetailView.swift in Sources */,
 				5DE63D552F4A0C79005E9F9A /* CustomTabBar.swift in Sources */,
 				5D58F2962F33ADB400E08ACB /* DocumentPicker.swift in Sources */,
+				5DB54E632F5513A100D9820C /* InboxView.swift in Sources */,
 				5D58F2982F33ADB400E08ACB /* ParagraphView.swift in Sources */,
 				5D58F2992F33ADB400E08ACB /* ContentView.swift in Sources */,
 				5D58F2D22F33AF0D00E08ACB /* RSVPViewModel.swift in Sources */,
@@ -559,6 +582,7 @@
 				5D58F29D2F33ADB400E08ACB /* ChapterListView.swift in Sources */,
 				5D58F29F2F33ADB400E08ACB /* WordDisplayView.swift in Sources */,
 				5D58F2A02F33ADB400E08ACB /* VerticalSlider.swift in Sources */,
+				770000001111111100000009 /* ReadingDocument+Transferable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -570,6 +594,7 @@
 				5D58F27B2F33ADB400E08ACB /* LibraryView.swift in Sources */,
 				5D58F27C2F33ADB400E08ACB /* DocumentPicker.swift in Sources */,
 				5DE63D4B2F4A0C5C005E9F9A /* HomeView.swift in Sources */,
+				5DB54E2F2F5233F800D9820C /* FigureAnnotation.swift in Sources */,
 				5D58F27E2F33ADB400E08ACB /* ParagraphView.swift in Sources */,
 				5D58F27F2F33ADB400E08ACB /* ContentView.swift in Sources */,
 				5D58F2802F33ADB400E08ACB /* WordSearchView.swift in Sources */,
@@ -586,8 +611,10 @@
 				5D58F2E22F3638A000E08ACB /* PDFParsingService.swift in Sources */,
 				5D58F2C22F33ADDF00E08ACB /* PageChunker.swift in Sources */,
 				5D58F2CF2F33AEE000E08ACB /* NavigationPoint.swift in Sources */,
+				5DB54E5D2F55139B00D9820C /* FolderDetailView.swift in Sources */,
 				5DE63D542F4A0C79005E9F9A /* CustomTabBar.swift in Sources */,
 				5D58F2C32F33ADDF00E08ACB /* LibraryManager.swift in Sources */,
+				5DB54E622F5513A100D9820C /* InboxView.swift in Sources */,
 				5D58F2C42F33ADDF00E08ACB /* DocumentParser.swift in Sources */,
 				5D58F2C52F33ADDF00E08ACB /* TextTokenizer.swift in Sources */,
 				5D58F2D32F33AF0D00E08ACB /* RSVPViewModel.swift in Sources */,
@@ -598,6 +625,7 @@
 				5D58F2CA2F33ADDF00E08ACB /* EPUBParser.swift in Sources */,
 				5D58F2CB2F33ADDF00E08ACB /* SettingsManager.swift in Sources */,
 				5D58F2CC2F33ADDF00E08ACB /* ThumbnailManager.swift in Sources */,
+				77000000111111110000000D /* ReadingDocument+Transferable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -622,6 +650,9 @@
 				5D58F26A2F33A3EF00E08ACB /* WordSearchView.swift in Sources */,
 				5DA37AD22F158C9000135432 /* SettingsView.swift in Sources */,
 				5DE63D4C2F4A0C5C005E9F9A /* HomeView.swift in Sources */,
+				5DB54E2D2F5233F800D9820C /* FigureAnnotation.swift in Sources */,
+				5DB54E612F5513A100D9820C /* InboxView.swift in Sources */,
+				5DB54E5E2F55139B00D9820C /* FolderDetailView.swift in Sources */,
 				5DA37AD32F158C9000135432 /* ParagraphView.swift in Sources */,
 				770000001111111100000002 /* ContentView.swift in Sources */,
 				5D72018D2F366F13003D07D8 /* OrientationManager.swift in Sources */,
@@ -638,6 +669,7 @@
 				5D58F2872F33ADB400E08ACB /* DocumentThumbnail.swift in Sources */,
 				5D58F2902F33ADB400E08ACB /* ChapterListView.swift in Sources */,
 				77000000111111110000000E /* LibraryView.swift in Sources */,
+				770000001111111100000008 /* ReadingDocument+Transferable.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1028,14 +1060,6 @@
 				minimumVersion = 0.9.20;
 			};
 		};
-		5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/weichsel/ZIPFoundation.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.9.20;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1051,7 +1075,7 @@
 		};
 		5DA37AD72F18286000135432 /* ZIPFoundation */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 5DA37AD62F18286000135432 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			package = 5D7201812F365F39003D07D8 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
 			productName = ZIPFoundation;
 		};
 /* End XCSwiftPackageProductDependency section */

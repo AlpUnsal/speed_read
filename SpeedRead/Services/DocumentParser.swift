@@ -19,6 +19,17 @@ struct DocumentParser {
     struct ParseResult {
         let text: String
         let navigationPoints: [NavigationPoint]
+        let title: String?
+        let figures: [FigureAnnotation]
+        let figureImages: [String: UIImage]
+        
+        init(text: String, navigationPoints: [NavigationPoint], title: String?, figures: [FigureAnnotation] = [], figureImages: [String: UIImage] = [:]) {
+            self.text = text
+            self.navigationPoints = navigationPoints
+            self.title = title
+            self.figures = figures
+            self.figureImages = figureImages
+        }
     }
     
     /// Parse document at URL and return text with navigation points
@@ -31,7 +42,7 @@ struct DocumentParser {
             if let text = parseTXT(url: url) {
                 let headings = HeadingDetector.createNavigationPoints(from: text)
                 let points = !headings.isEmpty ? headings : PageChunker.createPages(from: text)
-                return ParseResult(text: text, navigationPoints: points)
+                return ParseResult(text: text, navigationPoints: points, title: nil)
             }
             return nil
         case "pdf":
@@ -39,19 +50,19 @@ struct DocumentParser {
         case "docx":
             if let result = DOCXParser.parseWithHeadings(url: url) {
                 let points = !result.navigationPoints.isEmpty ? result.navigationPoints : PageChunker.createPages(from: result.text)
-                return ParseResult(text: result.text, navigationPoints: points)
+                return ParseResult(text: result.text, navigationPoints: points, title: result.title)
             }
             return nil
         case "rtf":
             if let text = parseRTF(url: url) {
                 let headings = HeadingDetector.createNavigationPoints(from: text)
                 let points = !headings.isEmpty ? headings : PageChunker.createPages(from: text)
-                return ParseResult(text: text, navigationPoints: points)
+                return ParseResult(text: text, navigationPoints: points, title: nil)
             }
             return nil
         case "epub":
             if let result = EPUBParser.parseWithChapters(url: url) {
-                return ParseResult(text: result.text, navigationPoints: result.chapters)
+                return ParseResult(text: result.text, navigationPoints: result.chapters, title: result.title)
             }
             return nil
         default:
@@ -69,7 +80,7 @@ struct DocumentParser {
         autoreleasepool {
             // 1. Parse (using existing method)
             if let result = parseWithNavigation(url: url) {
-                let title = url.deletingPathExtension().lastPathComponent
+                let title = result.title ?? url.deletingPathExtension().lastPathComponent
                 // logger.debug("DocumentParser: Parsing complete. Text: \(result.text.count)")
                 
                 // 2. Create Document
@@ -119,7 +130,7 @@ struct DocumentParser {
         // Wrap in autoreleasepool to ensure PDFKit memory is released BEFORE we return
         autoreleasepool {
             // logger.debug("DocumentParser: Calling PDFParsingService...")
-            let (text, navigationPoints) = PDFParsingService.parsePDF(url: url)
+            let (text, navigationPoints, title, figures, figureImages) = PDFParsingService.parsePDF(url: url)
             // logger.debug("DocumentParser: PDF Service returned text length: \(text.count)")
             
             if !text.isEmpty {
@@ -127,15 +138,15 @@ struct DocumentParser {
                 // Otherwise, fallback to HeadingDetector, and finally PageChunker
                 if !navigationPoints.isEmpty {
                      // logger.debug("DocumentParser: Creating result with sections")
-                     finalResult = ParseResult(text: text, navigationPoints: navigationPoints)
+                     finalResult = ParseResult(text: text, navigationPoints: navigationPoints, title: title, figures: figures, figureImages: figureImages)
                 } else {
                      let headings = HeadingDetector.createNavigationPoints(from: text)
                      if !headings.isEmpty {
-                         finalResult = ParseResult(text: text, navigationPoints: headings)
+                         finalResult = ParseResult(text: text, navigationPoints: headings, title: title, figures: figures, figureImages: figureImages)
                      } else {
                          // logger.debug("DocumentParser: Fallback to pages")
                          let pages = PageChunker.createPages(from: text)
-                         finalResult = ParseResult(text: text, navigationPoints: pages)
+                         finalResult = ParseResult(text: text, navigationPoints: pages, title: title, figures: figures, figureImages: figureImages)
                      }
                 }
             } else {

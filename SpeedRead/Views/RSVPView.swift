@@ -19,6 +19,9 @@ struct RSVPView: View {
     @AppStorage("hasShownContextPeekHint") private var hasShownContextPeekHint = false
     @State private var showContextPeekHint: Bool
     
+    @AppStorage("hasShownPlayPauseHint") private var hasShownPlayPauseHint = false
+    @State private var showPlayPauseHint: Bool
+    
     init(text: String, documentId: UUID?, startIndex: Int, initialWPM: Double, onExit: @escaping () -> Void) {
         self.text = text
         self.documentId = documentId
@@ -28,6 +31,7 @@ struct RSVPView: View {
         // Initialize showSpeedHint based on UserDefaults
         _showSpeedHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownSpeedHint"))
         _showContextPeekHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownContextPeekHint"))
+        _showPlayPauseHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownPlayPauseHint"))
     }
     
     @State private var currentWPMDisplay: Double? = nil
@@ -54,6 +58,19 @@ struct RSVPView: View {
     @State private var wasPlayingBeforeScrub = false
     @State private var preScrubIndex: Int? = nil
     @State private var showReturnPrompt = false
+    
+    // View lifecycle guard — prevents late-firing async callbacks from
+    // overwriting progress after the user has already exited the reader
+    @State private var isViewActive = false
+    
+    // Figure viewer state
+    @State private var showFigureViewer = false
+    @State private var showFigureExpanded = false
+    @State private var figureImage: UIImage? = nil
+    @State private var figureZoomScale: CGFloat = 1.0
+    @State private var figureLastZoomScale: CGFloat = 1.0
+    @State private var figurePanOffset: CGSize = .zero
+    @State private var figureLastPanOffset: CGSize = .zero
     
     var body: some View {
         GeometryReader { mainGeo in
@@ -119,6 +136,9 @@ struct RSVPView: View {
                         theme: settings.theme
                     )
                     .contentShape(Rectangle())
+                    .offset(y: (showFigureViewer && !showFigureExpanded) ? mainGeo.size.height * 0.15 : 0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showFigureViewer)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showFigureExpanded)
                     .onTapGesture {
                         handlePlayPause()
                     }
@@ -132,13 +152,13 @@ struct RSVPView: View {
                     ZStack {
                         // Progress indicator (Centered absolutely)
                         Text("Chapter \(viewModel.chapterProgressPercentage)% · Book \(viewModel.bookProgressPercentage)%")
-                            .font(.custom("EBGaramond-Regular", size: 14))
+                            .font(.custom("EBGaramond-Regular", size: 16))
                             .foregroundColor(Color(hex: "555555"))
                         
                         HStack {
                             Button(action: { saveProgressAndExit() }) {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 18, weight: .light))
+                                    .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
                                     .padding(12)
                             }
@@ -154,7 +174,7 @@ struct RSVPView: View {
                                     showSettings = true
                                 }) {
                                     Image(systemName: "gearshape")
-                                        .font(.system(size: 18, weight: .light))
+                                        .font(.system(size: 20, weight: .light))
                                         .foregroundColor(Color(hex: "555555"))
                                         .padding(12)
                                 }
@@ -171,7 +191,7 @@ struct RSVPView: View {
                                     }
                                 }) {
                                     Image(systemName: "arrow.counterclockwise")
-                                        .font(.system(size: 18, weight: .light))
+                                        .font(.system(size: 20, weight: .light))
                                         .foregroundColor(Color(hex: "555555"))
                                         .padding(12)
                                 }
@@ -197,7 +217,7 @@ struct RSVPView: View {
                                 showChapterList = true
                             }) {
                                 Image(systemName: "list.bullet")
-                                    .font(.system(size: 18, weight: .light))
+                                    .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
@@ -207,10 +227,14 @@ struct RSVPView: View {
                             // Skip backward 10 seconds
                             Button(action: {
                                 let skipCount = Int((viewModel.wordsPerMinute / 60.0) * 10.0)
-                                viewModel.skipBackward(by: max(1, skipCount))
+                                if showContextPeek {
+                                    jumpToWordAndDismiss(max(0, peekIndex - max(1, skipCount)))
+                                } else {
+                                    viewModel.skipBackward(by: max(1, skipCount))
+                                }
                             }) {
                                 Image(systemName: "gobackward.10")
-                                .font(.system(size: 18, weight: .light))
+                                .font(.system(size: 20, weight: .light))
                                 .foregroundColor(Color(hex: "555555"))
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
@@ -225,7 +249,7 @@ struct RSVPView: View {
                                 handlePlayPause()
                             }) {
                                 Image(systemName: viewModel.isPlaying ? "pause" : "play.fill")
-                                    .font(.system(size: 22, weight: .light))
+                                    .font(.system(size: 24, weight: .light))
                                     .foregroundColor(Color(hex: "777777"))
                                     .frame(width: 60, height: 60)
                                     .contentShape(Rectangle())
@@ -235,10 +259,14 @@ struct RSVPView: View {
                             // Skip forward 10 seconds
                             Button(action: {
                                 let skipCount = Int((viewModel.wordsPerMinute / 60.0) * 10.0)
-                                viewModel.skipForward(by: max(1, skipCount))
+                                if showContextPeek {
+                                    jumpToWordAndDismiss(min(viewModel.totalWords - 1, peekIndex + max(1, skipCount)))
+                                } else {
+                                    viewModel.skipForward(by: max(1, skipCount))
+                                }
                             }) {
                                 Image(systemName: "goforward.10")
-                                    .font(.system(size: 18, weight: .light))
+                                    .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
@@ -253,12 +281,13 @@ struct RSVPView: View {
                                 showSearch = true
                             }) {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.system(size: 18, weight: .light))
+                                    .font(.system(size: 20, weight: .light))
                                     .foregroundColor(Color(hex: "555555"))
                                     .frame(width: 44, height: 44)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(ScaleButtonStyle())
+
                         }
                         .padding(.bottom, 20)
                         .opacity(showUI ? 1.0 : 0.0)
@@ -309,11 +338,15 @@ struct RSVPView: View {
                 GeometryReader { geo in
                     // Swipe zone covers right third of screen, full height (Speed Reader Mode only)
                     if settings.readerMode != .paragraph {
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
+                        let zoneHeight = isFigureVisible ? geo.size.height * 0.5 : geo.size.height
+                        let zoneY = isFigureVisible ? geo.size.height * 0.75 : geo.size.height * 0.5
+                        
                         Rectangle()
                             .fill(Color.clear)
                             .contentShape(Rectangle())
-                            .frame(width: geo.size.width * 0.33, height: geo.size.height)
-                            .position(x: geo.size.width * 0.835, y: geo.size.height * 0.5)
+                            .frame(width: geo.size.width * 0.33, height: zoneHeight)
+                            .position(x: geo.size.width * 0.835, y: zoneY)
                             .gesture(
                             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                                 .onChanged { value in
@@ -359,15 +392,17 @@ struct RSVPView: View {
                     
                     // WPM feedback display (shows during/after swipe)
                     if let wpm = currentWPMDisplay {
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
                         Text("\(Int(wpm)) WPM")
                             .font(.custom("EBGaramond-Regular", size: 18))
                             .foregroundColor(Color(hex: "888888"))
-                            .position(x: geo.size.width * 0.85, y: geo.size.height * 0.45)
+                            .position(x: geo.size.width * 0.85, y: isFigureVisible ? geo.size.height * 0.60 : geo.size.height * 0.45)
                             .transition(.opacity)
                     }
                     
                     // Initial hint (fades away after first swipe)
                     if showSpeedHint {
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
                         VStack(spacing: 8) {
                             Image(systemName: "arrow.up.and.down")
                             .font(.system(size: 24))
@@ -376,12 +411,13 @@ struct RSVPView: View {
                             .multilineTextAlignment(.center)
                         }
                         .foregroundColor(Color(hex: "555555"))
-                        .position(x: geo.size.width * 0.85, y: geo.size.height * 0.55)
+                        .position(x: geo.size.width * 0.85, y: isFigureVisible ? geo.size.height * 0.70 : geo.size.height * 0.55)
                         .transition(.opacity)
                     }
                     
                     // Context Peek Hint (Left side)
                     if showContextPeekHint {
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
                         VStack(spacing: 8) {
                             Image(systemName: "arrow.up.and.down")
                             .font(.system(size: 24))
@@ -390,7 +426,22 @@ struct RSVPView: View {
                             .multilineTextAlignment(.center)
                         }
                         .foregroundColor(Color(hex: "555555"))
-                        .position(x: geo.size.width * 0.15, y: geo.size.height * 0.55)
+                        .position(x: geo.size.width * 0.15, y: isFigureVisible ? geo.size.height * 0.70 : geo.size.height * 0.55)
+                        .transition(.opacity)
+                    }
+                    
+                    // Play/Pause Hint (Center)
+                    if showPlayPauseHint {
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
+                        VStack(spacing: 8) {
+                            Image(systemName: "hand.tap")
+                            .font(.system(size: 24))
+                            Text("Tap to\nplay/pause")
+                            .font(.custom("EBGaramond-Regular", size: 14))
+                            .multilineTextAlignment(.center)
+                        }
+                        .foregroundColor(Color(hex: "555555"))
+                        .position(x: geo.size.width * 0.5, y: isFigureVisible ? geo.size.height * 0.78 : geo.size.height * 0.68)
                         .transition(.opacity)
                     }
                 } // End GeometryReader
@@ -398,11 +449,15 @@ struct RSVPView: View {
                 // Context Peek zone - only in speed reader mode (not paragraph mode)
                 if settings.readerMode != .paragraph {
                     GeometryReader { geo in
+                        let isFigureVisible = showFigureViewer && !showFigureExpanded
+                        let peekZoneHeight = isFigureVisible ? geo.size.height * 0.5 : geo.size.height * 0.7
+                        let peekZoneY = isFigureVisible ? geo.size.height * 0.75 : geo.size.height * 0.5
+                        
                         Rectangle()
                             .fill(Color.clear)
                             .contentShape(Rectangle())
-                            .frame(width: geo.size.width * 0.35, height: geo.size.height * 0.7)
-                            .position(x: geo.size.width * 0.15, y: geo.size.height * 0.5)
+                            .frame(width: geo.size.width * 0.35, height: peekZoneHeight)
+                            .position(x: geo.size.width * 0.15, y: peekZoneY)
                             .gesture(
                                 DragGesture()
                                     .onChanged { value in
@@ -488,37 +543,19 @@ struct RSVPView: View {
                                                             .font(.custom(settings.fontName, size: fontSize))
                                                             .foregroundColor(
                                                                 isORP
-                                                                    ? Color(hex: "E63946") // Red for ORP letter
+                                                                    ? settings.accentColor // Red for ORP letter
                                                                     : (offset == 0 
                                                                         ? settings.textColor 
                                                                         : settings.textColor.opacity(0.4 - Double(abs(offset)) * 0.04))
                                                             )
-                                                            .fontWeight(offset == 0 ? .medium : .regular)
+                                                            .fontWeight(.regular)
                                                     }
                                                 }
                                                 .fixedSize(horizontal: true, vertical: false)
                                                 .offset(x: offset == 0 ? calculateORPOffset(for: viewModel.word(at: wordIndex), in: geo) : 0)
                                                 .position(x: geo.size.width / 2, y: geo.size.height / 2)
                                                 
-                                                // Fixed lines for the top word in peek
-                                                if offset == 0 && settings.showORPEmphasisLines {
-                                                    // Use constants based on 48.0 max font size for stability
-                                                    let baseFontSize: CGFloat = 48.0 * settings.fontSizeMultiplier
-                                                    let lineLength = baseFontSize * 0.25
-                                                    let lineSpacing = baseFontSize * 0.4
-                                                    
-                                                    VStack(spacing: 0) {
-                                                        Rectangle()
-                                                            .fill(settings.textColor.opacity(0.3))
-                                                            .frame(width: 1.5, height: lineLength)
-                                                        Spacer()
-                                                            .frame(height: lineSpacing * 2 + baseFontSize * 0.8)
-                                                        Rectangle()
-                                                            .fill(settings.textColor.opacity(0.3))
-                                                            .frame(width: 1.5, height: lineLength)
-                                                    }
-                                                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                                                }
+
                                             }
                                         }
                                         .frame(height: 40)
@@ -538,7 +575,7 @@ struct RSVPView: View {
                                 }
                             }
                         }
-                        .offset(y: peekDragOffset * 0.3)
+                        .offset(y: peekDragOffset * 0.3 + ((showFigureViewer && !showFigureExpanded) ? UIScreen.main.bounds.height * 0.15 : 0))
                     }
                     .contentShape(Rectangle())
                     .gesture(
@@ -566,7 +603,6 @@ struct RSVPView: View {
                     VStack(spacing: 4) {
                         Text(viewModel.word(at: scrubIndex))
                             .font(.custom(settings.fontName, size: 28))
-                            .fontWeight(.medium)
                             .foregroundColor(settings.textColor)
                         
                         Text("\(scrubIndex + 1) / \(viewModel.totalWords)")
@@ -604,11 +640,11 @@ struct RSVPView: View {
                             // Visual Bar (remains thin and sleek)
                             ZStack(alignment: .leading) {
                                 Rectangle()
-                                    .fill(Color(hex: "2A2A2A"))
+                                    .fill(settings.progressBarBackgroundColor)
                                     .frame(height: 3)
                                 
                                 Rectangle()
-                                    .fill(Color(hex: "E63946"))
+                                    .fill(settings.accentColor)
                                     // Use scrubProgress if scrubbing, otherwise viewModel.progress
                                     .frame(width: geometry.size.width * (isScrubbing ? scrubProgress : viewModel.progress), height: 3)
                             }
@@ -700,9 +736,9 @@ struct RSVPView: View {
                         }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "arrow.uturn.backward")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 14, weight: .light))
                                 Text("Return to position")
-                                    .font(.custom("EBGaramond-Medium", size: 16))
+                                    .font(.custom("EBGaramond-Regular", size: 16))
                             }
                             .foregroundColor(settings.textColor)
                             .padding(.horizontal, 16)
@@ -722,6 +758,9 @@ struct RSVPView: View {
                     }
                     .zIndex(100)
                 }
+            // --- FIGURE OVERLAYS (extracted to fix type-check timeout) ---
+            figureHalfScreenOverlay(geo: mainGeo)
+            figureExpandedOverlay()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
                 viewModel.pause()
@@ -732,14 +771,33 @@ struct RSVPView: View {
                 saveProgress()
                 LibraryManager.shared.forceSave()
             }
+            .onChange(of: viewModel.figureToShow) { _, figure in
+                guard let figure = figure else { return }
+                // Already paused by ViewModel — just load image and show overlay
+                if let docId = documentId {
+                    figureImage = LibraryManager.shared.loadFigureImage(for: docId, fileName: figure.imageFileName)
+                }
+                uiHideTimer?.invalidate()
+                withAnimation { showUI = true }
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    showFigureViewer = true
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 // Redundancy: force save again if needed
                 saveProgress()
                 LibraryManager.shared.forceSave()
             }
             .onAppear {
+                // Mark the view as active — any post-load callbacks will check this
+                // flag before doing work, so late-firing completions after exit are no-ops.
+                isViewActive = true
+                
                 // Unlock orientation for RSVP view
                 OrientationManager.orientationLock = .allButUpsideDown
+                
+                // Set initial progress immediately so early exits don't overwrite saved index
+                viewModel.currentIndex = startIndex
                 
                 // Start auto-hide timer for Paragraph Mode
                 if settings.readerMode == .paragraph {
@@ -753,10 +811,15 @@ struct RSVPView: View {
                     fontName: settings.fontName,
                     fontSizeMultiplier: settings.fontSizeMultiplier
                 ) {
+                    // Guard: if the user exited before loading finished, skip post-load
+                    // setup — the correct index was already saved from onDisappear.
+                    guard isViewActive else { return }
+                    
                     // Setup navigation points after loading
                     if let docId = documentId,
                        let doc = LibraryManager.shared.documents.first(where: { $0.id == docId }) {
                         viewModel.setNavigationPoints(doc.navigationPoints)
+                        viewModel.setFigureAnnotations(doc.figureAnnotations)
                     } else {
                         // Generate page-based navigation for documents without stored nav points
                         let pages = PageChunker.createPages(from: viewModel.words)
@@ -777,9 +840,17 @@ struct RSVPView: View {
                 }
             }
             .onDisappear {
+                // Mark the view as inactive so any still-running async work
+                // (e.g. late-completing loadTextAsync) doesn't clobber saved state.
+                isViewActive = false
+                
                 // Re-lock to portrait when leaving
                 OrientationManager.orientationLock = .portrait
                 saveProgress()
+                
+                // Force an immediate synchronous disk write so progress is never
+                // lost to the debounce window, regardless of how the user exits.
+                LibraryManager.shared.forceSave()
                 
                 // Safely access UIApplication.shared for extensions
                 if let sharedApp = UIApplication.perform(NSSelectorFromString("sharedApplication"))?.takeUnretainedValue() as? UIApplication {
@@ -806,9 +877,12 @@ struct RSVPView: View {
     
     private func saveProgress() {
         if let docId = documentId {
+            // If the text hasn't finished loading yet (words is empty), fall back
+            // to startIndex so an early exit never overwrites the saved position with 0.
+            let indexToSave = viewModel.words.isEmpty ? startIndex : viewModel.currentIndex
             LibraryManager.shared.updateProgress(
                 for: docId,
-                wordIndex: viewModel.currentIndex,
+                wordIndex: indexToSave,
                 wpm: viewModel.wordsPerMinute
             )
         }
@@ -846,6 +920,13 @@ struct RSVPView: View {
     }
     
     private func handlePlayPause() {
+        if showPlayPauseHint {
+            hasShownPlayPauseHint = true
+            withAnimation(.easeOut(duration: 0.3)) {
+                showPlayPauseHint = false
+            }
+        }
+        
         viewModel.togglePlayPause()
         
         // Hide return prompt when playing
@@ -899,6 +980,224 @@ struct RSVPView: View {
         
         // Calculate offset to position ORP at center
         return (wordWidth / 2) - orpOffset
+    }
+    
+    // MARK: - Figure Overlay Views (extracted from body to reduce type-check complexity)
+    
+    @ViewBuilder
+    private func figureHalfScreenOverlay(geo: GeometryProxy) -> some View {
+        if showFigureViewer, !showFigureExpanded {
+            VStack(spacing: 0) {
+                ZStack(alignment: .topTrailing) {
+                    settings.backgroundColor.opacity(0.92)
+                    
+                    VStack(spacing: 12) {
+                        Spacer().frame(height: 50)
+                        
+                        if let image = figureImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: geo.size.height * 0.35)
+                                .cornerRadius(8)
+                                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                                .onTapGesture {
+                                    viewModel.pause()
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                        showFigureExpanded = true
+                                    }
+                                }
+                        } else {
+                            VStack(spacing: 8) {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(settings.mutedTextColor)
+                                Text("Loading figure...")
+                                    .font(.custom("EBGaramond-Regular", size: 14))
+                                    .foregroundColor(settings.mutedTextColor)
+                            }
+                            .frame(height: geo.size.height * 0.25)
+                        }
+                        
+                        if let caption = viewModel.figureToShow?.caption {
+                            Text(caption)
+                                .font(.custom("EBGaramond-Italic", size: 15))
+                                .foregroundColor(settings.secondaryTextColor)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                                .lineLimit(3)
+                        }
+                        
+                        Text("Tap image to expand")
+                            .font(.custom("EBGaramond-Regular", size: 12))
+                            .foregroundColor(settings.mutedTextColor)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    
+                    Button(action: { closeFigureViewer() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .light))
+                            .foregroundColor(settings.secondaryTextColor)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(settings.backgroundColor.opacity(0.8)))
+                    }
+                    .padding(.top, 14)
+                    .padding(.trailing, 14)
+                }
+                .frame(height: geo.size.height * 0.5)
+                .gesture(
+                    DragGesture(minimumDistance: 40)
+                        .onEnded { value in
+                            if value.translation.height > 80 { closeFigureViewer() }
+                        }
+                )
+                
+                Color.clear
+                    .frame(height: geo.size.height * 0.5)
+                    .allowsHitTesting(false)
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zIndex(50)
+        }
+    }
+    
+    @ViewBuilder
+    private func figureExpandedOverlay() -> some View {
+        if showFigureExpanded {
+            ZStack {
+                Color.black.opacity(0.95)
+                    .ignoresSafeArea()
+                    .onTapGesture { dismissExpandedFigure() }
+                
+                if let image = figureImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .scaleEffect(figureZoomScale)
+                        .offset(figurePanOffset)
+                        .gesture(
+                            MagnifyGesture()
+                                .onChanged { value in
+                                    figureZoomScale = figureLastZoomScale * value.magnification
+                                }
+                                .onEnded { _ in
+                                    figureLastZoomScale = max(1.0, figureZoomScale)
+                                    figureZoomScale = figureLastZoomScale
+                                    if figureZoomScale <= 1.0 {
+                                        withAnimation(.spring(response: 0.3)) {
+                                            figurePanOffset = .zero
+                                            figureLastPanOffset = .zero
+                                        }
+                                    }
+                                }
+                        )
+                        .simultaneousGesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if figureZoomScale > 1.0 {
+                                        figurePanOffset = CGSize(
+                                            width: figureLastPanOffset.width + value.translation.width,
+                                            height: figureLastPanOffset.height + value.translation.height
+                                        )
+                                    }
+                                }
+                                .onEnded { value in
+                                    if figureZoomScale > 1.0 {
+                                        figureLastPanOffset = figurePanOffset
+                                    } else if value.translation.height > 100 {
+                                        dismissExpandedFigure()
+                                    }
+                                }
+                        )
+                        .onTapGesture(count: 2) {
+                            withAnimation(.spring(response: 0.3)) {
+                                if figureZoomScale > 1.0 {
+                                    figureZoomScale = 1.0
+                                    figureLastZoomScale = 1.0
+                                    figurePanOffset = .zero
+                                    figureLastPanOffset = .zero
+                                } else {
+                                    figureZoomScale = 2.5
+                                    figureLastZoomScale = 2.5
+                                }
+                            }
+                        }
+                }
+                
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: { dismissExpandedFigure() }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(.white)
+                                .frame(width: 40, height: 40)
+                                .background(Circle().fill(Color.white.opacity(0.2)))
+                        }
+                        .padding(.top, 20)
+                        .padding(.trailing, 20)
+                    }
+                    Spacer()
+                    
+                    if let caption = viewModel.figureToShow?.caption {
+                        Text(caption)
+                            .font(.custom("EBGaramond-Italic", size: 16))
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 40)
+                    }
+                }
+            }
+            .transition(.opacity)
+            .zIndex(200)
+        }
+    }
+    
+    // MARK: - Figure Viewer Methods
+    
+    private func openFigureViewer() {
+        guard let figure = viewModel.figureToShow ?? viewModel.figureAnnotations.first,
+              let docId = documentId else { return }
+        
+        // Pause reading
+        viewModel.pause()
+        uiHideTimer?.invalidate()
+        withAnimation { showUI = true }
+        
+        // Load figure image from disk
+        figureImage = LibraryManager.shared.loadFigureImage(for: docId, fileName: figure.imageFileName)
+        
+        // Show the overlay
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            showFigureViewer = true
+        }
+    }
+    
+    private func closeFigureViewer() {
+        viewModel.dismissCurrentFigure()
+        withAnimation(.easeOut(duration: 0.25)) {
+            showFigureViewer = false
+            showFigureExpanded = false
+        }
+        figureImage = nil
+        resetFigureZoom()
+    }
+    
+    private func dismissExpandedFigure() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            showFigureExpanded = false
+        }
+        resetFigureZoom()
+    }
+    
+    private func resetFigureZoom() {
+        figureZoomScale = 1.0
+        figureLastZoomScale = 1.0
+        figurePanOffset = .zero
+        figureLastPanOffset = .zero
     }
 }
 

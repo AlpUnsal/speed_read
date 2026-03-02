@@ -5,14 +5,10 @@
   "description": "Read articles faster with RSVP and scrolling modes.",
   "permissions": [
     "activeTab",
-    "scripting",
-    "storage",
-    "contextMenus"
-  ],
-  "host_permissions": [
-    "<all_urls>"
+    "storage"
   ],
   "action": {
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -20,13 +16,14 @@
     }
   },
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background/background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "css": ["content/styles.css"],
-      "js": ["content/readability.js", "content/rsvp.js", "content/scroll.js", "content/content.js"]
+      "css": ["styles.css"],
+      "js": ["readability.js", "rsvp.js", "scroll.js", "content.js"]
     }
   ],
   "icons": {

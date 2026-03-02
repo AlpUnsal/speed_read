@@ -127,12 +127,14 @@ struct ContentView: View {
                             
                             // Back on Main Actor
                             await MainActor.run {
-                                let doc = libraryManager.addDocument(
-                                    name: fileName, 
-                                    content: result.text, 
-                                    sourceBookmark: pickedDoc.bookmark,
-                                    navigationPoints: result.navigationPoints // Pass the sections!
-                                )
+                                    let doc = libraryManager.addDocument(
+                                        name: result.title ?? fileName, 
+                                        content: result.text, 
+                                        sourceBookmark: pickedDoc.bookmark,
+                                        navigationPoints: result.navigationPoints,
+                                        figureAnnotations: result.figures,
+                                        figureImages: result.figureImages
+                                    )
                                 currentDocument = doc
                                 isProcessingDocument = false
                                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -210,10 +212,12 @@ struct ContentView: View {
                     // Back on main
                     await MainActor.run {
                         let doc = libraryManager.addDocument(
-                            name: title,
+                            name: result.title ?? title,
                             content: result.text,
                             sourceBookmark: nil,
-                            navigationPoints: result.navigationPoints
+                            navigationPoints: result.navigationPoints,
+                            figureAnnotations: result.figures,
+                            figureImages: result.figureImages
                         )
                         
                         if let coverURL = coverURL {
@@ -248,6 +252,46 @@ struct ContentView: View {
     // MARK: - URL Handling
     
     private func handleOpenURL(_ url: URL, retryCount: Int = 0) {
+        if url.isFileURL {
+            let fileName = url.deletingPathExtension().lastPathComponent
+            
+            if let existingDoc = libraryManager.documents.first(where: { $0.name == fileName || $0.originalName == fileName }) {
+                currentDocument = existingDoc
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isReading = true
+                    }
+                }
+                return
+            }
+            
+            isProcessingDocument = true
+            Task {
+                if let result = await Task.detached(priority: .userInitiated, operation: {
+                    return DocumentParser.parseWithNavigation(url: url)
+                }).value {
+                    await MainActor.run {
+                        let doc = libraryManager.addDocument(
+                            name: result.title ?? fileName, 
+                            content: result.text, 
+                            sourceBookmark: nil,
+                            navigationPoints: result.navigationPoints,
+                            figureAnnotations: result.figures,
+                            figureImages: result.figureImages
+                        )
+                        currentDocument = doc
+                        isProcessingDocument = false
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isReading = true
+                        }
+                    }
+                } else {
+                     await MainActor.run { isProcessingDocument = false }
+                }
+            }
+            return
+        }
+
         guard url.scheme == "axilo",
               url.host == "open",
               let components = URLComponents(url: url, resolvingAgainstBaseURL: true),

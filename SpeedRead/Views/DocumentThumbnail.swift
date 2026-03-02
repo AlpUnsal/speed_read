@@ -75,7 +75,6 @@ struct DocumentThumbnail: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(document.name)
                         .font(.custom("EBGaramond-Regular", size: 12))
-                        .fontWeight(.medium)
                         .foregroundColor(settings.textColor)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)

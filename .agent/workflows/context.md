@@ -8,3 +8,4 @@ To understand the project architecture and guidelines, follow these steps:
 2. Review the core components described in the "Architecture (MVVM)" section.
 3. Pay close attention to the "Key Developer Guidelines" section to ensure code consistency.
 4. If you are modifying the reader engine, refer to the `RSVPViewModel` and `RSVPView` descriptions.
+5. For Web Extension work (`AxiloWeb`), review the "Web Extension Technical Context" section in `AGENTS.md` for Safari-specific UI and gesture patterns.

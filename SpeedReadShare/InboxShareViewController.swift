@@ -113,7 +113,6 @@ class InboxShareViewController: SLComposeServiceViewController {
              
              DispatchQueue.main.async {
                  self.openMainApp(documentId: newDoc.id)
-                 self.completeRequest()
              }
         } else {
             completeRequest()
@@ -131,7 +130,6 @@ class InboxShareViewController: SLComposeServiceViewController {
                 if let savedID = DocumentParser.parseAndSave(url: url) {
                     DispatchQueue.main.async {
                         self.openMainApp(documentId: savedID)
-                        self.completeRequest()
                     }
                 } else {
                     DispatchQueue.main.async {
@@ -173,9 +171,25 @@ class InboxShareViewController: SLComposeServiceViewController {
     
     private func openMainApp(documentId: UUID) {
         let urlString = "axilo://open?id=\(documentId.uuidString)"
-        if let url = URL(string: urlString) {
-            self.extensionContext?.open(url, completionHandler: nil)
+        guard let url = URL(string: urlString) else { 
+            self.completeRequest()
+            return 
         }
+        
+        var responder: UIResponder? = self as UIResponder
+        let selectorOpenURL = sel_registerName("openURL:")
+        
+        while let currentResponder = responder {
+            if currentResponder.responds(to: selectorOpenURL) {
+                self.extensionContext?.completeRequest(returningItems: [], completionHandler: { _ in
+                    currentResponder.perform(selectorOpenURL, with: url)
+                })
+                return
+            }
+            responder = currentResponder.next
+        }
+        
+        self.completeRequest()
     }
     
     private func completeRequest() {

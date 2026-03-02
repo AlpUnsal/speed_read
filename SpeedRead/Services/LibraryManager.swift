@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Represents a document in the user's reading library
 struct ReadingDocument: Codable, Identifiable, Equatable {
@@ -12,6 +13,8 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
     var wordsPerMinute: Double
     var sourceBookmark: Data?  // Security-scoped bookmark for thumbnail generation
     var navigationPoints: [NavigationPoint]  // Chapter/page navigation points
+    var figureAnnotations: [FigureAnnotation]  // Extracted figure/exhibit annotations
+    var folderId: UUID? // Optional folder reference
     
     // Used ONLY during migration from old JSON format, ignored during encoding
     var migrationContent: String?
@@ -44,7 +47,7 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
         }
     }
     
-    init(name: String, content: String, sourceBookmark: Data? = nil, navigationPoints: [NavigationPoint]? = nil) {
+    init(name: String, content: String, sourceBookmark: Data? = nil, navigationPoints: [NavigationPoint]? = nil, figureAnnotations: [FigureAnnotation] = [], folderId: UUID? = nil) {
         self.id = UUID()
         self.name = name
         self.originalName = name
@@ -60,6 +63,8 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
         self.lastReadDate = Date()
         self.wordsPerMinute = 300
         self.sourceBookmark = sourceBookmark
+        self.figureAnnotations = figureAnnotations
+        self.folderId = folderId
         
         // Use provided navigation points, or generate page-based navigation
         if let navPoints = navigationPoints, !navPoints.isEmpty {
@@ -70,7 +75,7 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, name, originalName, excerpt, currentWordIndex, totalWords, lastReadDate, wordsPerMinute, sourceBookmark, navigationPoints
+        case id, name, originalName, excerpt, currentWordIndex, totalWords, lastReadDate, wordsPerMinute, sourceBookmark, navigationPoints, figureAnnotations, folderId
         // migrationContent is intentionally omitted so it doesn't get saved back to JSON
     }
     
@@ -101,6 +106,12 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
             navigationPoints = [] // Will be populated during migration if empty
         }
         
+        // Decode figure annotations (empty array for old documents)
+        figureAnnotations = (try? container.decodeIfPresent([FigureAnnotation].self, forKey: .figureAnnotations)) ?? []
+        
+        // Decode folderId if present
+        folderId = try? container.decodeIfPresent(UUID.self, forKey: .folderId)
+        
         // Migration support: decode old 'content' key using a dynamic coding key
         let dynamicContainer = try decoder.container(keyedBy: DynamicCodingKeys.self)
         if let oldContent = try dynamicContainer.decodeIfPresent(String.self, forKey: DynamicCodingKeys(stringValue: "content")!) {
@@ -129,11 +140,36 @@ struct ReadingDocument: Codable, Identifiable, Equatable {
     }
 }
 
+/// Represents a folder in the user's reading library to organize documents
+struct DocumentFolder: Codable, Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    var dateCreated: Date
+    
+    init(id: UUID = UUID(), name: String, dateCreated: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.dateCreated = dateCreated
+    }
+}
+
+/// Lightweight progress snapshot used as a redundant backup to guard against
+/// lost progress when the app is killed during the 2-second async-save debounce.
+/// Written synchronously on every updateProgress() call; merged on app launch.
+struct ProgressCheckpoint: Codable {
+    let id: UUID
+    var wordIndex: Int
+    var wpm: Double
+    var lastReadDate: Date
+}
+
 /// Manages the user's document library with persistence
 class LibraryManager: ObservableObject {
     static let shared = LibraryManager()
     
     @Published var documents: [ReadingDocument] = []
+    @Published var inboxDocuments: [ReadingDocument] = []
+    @Published var folders: [DocumentFolder] = []
     
     private let storageKey = "SpeedReadLibrary"
     private let appGroupIdentifier = "group.com.alpunsal.axilo"
@@ -156,7 +192,7 @@ class LibraryManager: ObservableObject {
     ///   - content: Parsed text content
     ///   - sourceBookmark: Pre-created bookmark data for thumbnail generation
     ///   - navigationPoints: Optional list of navigation points (chapters/sections)
-    func addDocument(name: String, content: String, sourceBookmark: Data? = nil, navigationPoints: [NavigationPoint]? = nil) -> ReadingDocument {
+    func addDocument(name: String, content: String, sourceBookmark: Data? = nil, navigationPoints: [NavigationPoint]? = nil, figureAnnotations: [FigureAnnotation] = [], figureImages: [String: UIImage] = [:]) -> ReadingDocument {
         // Check if document with same name exists
         if let existingIndex = documents.firstIndex(where: { $0.name == name }) {
             // Check if content is the same (by comparing excerpt and total words for now)
@@ -181,7 +217,7 @@ class LibraryManager: ObservableObject {
                 return documents[0]
             } else {
                 // Content changed, reset progress
-                let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints)
+                let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints, figureAnnotations: figureAnnotations)
                 let oldId = documents[existingIndex].id
                 documents.remove(at: existingIndex)
                 documents.insert(newDoc, at: 0)
@@ -192,10 +228,11 @@ class LibraryManager: ObservableObject {
             }
         } else {
             // Add new document
-            let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints)
+            let newDoc = ReadingDocument(name: name, content: content, sourceBookmark: sourceBookmark, navigationPoints: navigationPoints, figureAnnotations: figureAnnotations)
             documents.insert(newDoc, at: 0)
             saveDocuments()
             saveContent(content, for: newDoc.id)
+            saveFigureImages(figureImages, for: newDoc.id)
             return newDoc
         }
     }
@@ -212,6 +249,10 @@ class LibraryManager: ObservableObject {
                 documents[index].currentWordIndex = wordIndex
                 documents[index].wordsPerMinute = wpm
             }
+            
+            // Write a synchronous checkpoint so progress survives app kills
+            // that happen in the debounce window before the async save fires.
+            writeProgressCheckpoint(id: documentId, wordIndex: wordIndex, wpm: wpm)
             
             // Move updated document to the front
             if index != 0 {
@@ -245,6 +286,7 @@ class LibraryManager: ObservableObject {
         documents.removeAll { $0.id == document.id }
         saveDocuments()
         deleteContent(for: document.id)
+        deleteFigureImages(for: document.id)
     }
     
     /// Rename a document
@@ -267,7 +309,22 @@ class LibraryManager: ObservableObject {
             .appendingPathComponent("library.json")
     }
     
-    private var inboxURL: URL? {
+    private var inboxFileURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("inbox.json")
+    }
+    
+    private var foldersFileURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("folders.json")
+    }
+    
+    private var checkpointFileURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent("library_checkpoint.json")
+    }
+    
+    private var sharedInboxURL: URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
             .appendingPathComponent("Inbox")
     }
@@ -310,6 +367,43 @@ class LibraryManager: ObservableObject {
         try? FileManager.default.removeItem(at: fileURL)
     }
     
+    // MARK: - Figure Storage
+    
+    private var figuresDirectoryURL: URL? {
+        guard let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else { return nil }
+        let url = groupURL.appendingPathComponent("Figures")
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        }
+        return url
+    }
+    
+    func saveFigureImages(_ images: [String: UIImage], for documentId: UUID) {
+        guard !images.isEmpty, let figDir = figuresDirectoryURL else { return }
+        let docFigDir = figDir.appendingPathComponent(documentId.uuidString)
+        try? FileManager.default.createDirectory(at: docFigDir, withIntermediateDirectories: true)
+        
+        for (fileName, image) in images {
+            let fileURL = docFigDir.appendingPathComponent(fileName)
+            if let data = image.pngData() {
+                try? data.write(to: fileURL, options: .atomic)
+            }
+        }
+    }
+    
+    func loadFigureImage(for documentId: UUID, fileName: String) -> UIImage? {
+        guard let figDir = figuresDirectoryURL else { return nil }
+        let fileURL = figDir.appendingPathComponent(documentId.uuidString).appendingPathComponent(fileName)
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        return UIImage(data: data)
+    }
+    
+    private func deleteFigureImages(for documentId: UUID) {
+        guard let figDir = figuresDirectoryURL else { return }
+        let docFigDir = figDir.appendingPathComponent(documentId.uuidString)
+        try? FileManager.default.removeItem(at: docFigDir)
+    }
+    
     // MARK: - Document Saving
     
     private func saveDocuments() {
@@ -320,6 +414,30 @@ class LibraryManager: ObservableObject {
             print("Library synchronously saved to disk.")
         } catch {
             print("Error saving library: \(error)")
+        }
+        saveFolders()
+        saveInbox()
+    }
+    
+    private func saveFolders() {
+        guard let url = foldersFileURL else { return }
+        do {
+            let data = try JSONEncoder().encode(folders)
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+            print("Folders synchronously saved to disk.")
+        } catch {
+            print("Error saving folders: \(error)")
+        }
+    }
+    
+    private func saveInbox() {
+        guard let url = inboxFileURL else { return }
+        do {
+            let data = try JSONEncoder().encode(inboxDocuments)
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+            print("Inbox synchronously saved to disk.")
+        } catch {
+            print("Error saving inbox: \(error)")
         }
     }
     
@@ -355,6 +473,45 @@ class LibraryManager: ObservableObject {
         saveDocuments()
     }
     
+    // MARK: - Checkpoint (Redundant Progress Backup)
+    
+    /// Write a lightweight progress-only checkpoint for one document.
+    /// This is called synchronously in updateProgress() to ensure that even
+    /// if the app is killed before the debounced async save fires, we have
+    /// an up-to-date record that can be merged back on next launch.
+    private func writeProgressCheckpoint(id: UUID, wordIndex: Int, wpm: Double) {
+        guard let url = checkpointFileURL else { return }
+        
+        // Load the current checkpoint array, upsert, then write back.
+        var checkpoints: [ProgressCheckpoint]
+        if let data = try? Data(contentsOf: url),
+           let decoded = try? JSONDecoder().decode([ProgressCheckpoint].self, from: data) {
+            checkpoints = decoded
+        } else {
+            checkpoints = []
+        }
+        
+        let newEntry = ProgressCheckpoint(id: id, wordIndex: wordIndex, wpm: wpm, lastReadDate: Date())
+        if let i = checkpoints.firstIndex(where: { $0.id == id }) {
+            checkpoints[i] = newEntry
+        } else {
+            checkpoints.append(newEntry)
+        }
+        
+        if let data = try? JSONEncoder().encode(checkpoints) {
+            try? data.write(to: url, options: [.atomic])
+        }
+    }
+    
+    /// Load all stored progress checkpoints from disk.
+    private func loadProgressCheckpoints() -> [ProgressCheckpoint] {
+        guard let url = checkpointFileURL,
+              let data = try? Data(contentsOf: url),
+              let decoded = try? JSONDecoder().decode([ProgressCheckpoint].self, from: data)
+        else { return [] }
+        return decoded
+    }
+    
     public func refresh() {
         guard let url = libraryFileURL else { return }
         
@@ -385,12 +542,48 @@ class LibraryManager: ObservableObject {
             }
         }
         
+        // 2.6 Merge checkpoint data: the checkpoint file is written synchronously on every
+        // progress update, so it may contain newer data than library.json (which uses a
+        // 2-second debounced write). If the app was killed in that window, this recovers
+        // the user's true reading position.
+        let checkpoints = loadProgressCheckpoints()
+        if !checkpoints.isEmpty {
+            var checkpointSaveNeeded = false
+            for checkpoint in checkpoints {
+                if let i = documents.firstIndex(where: { $0.id == checkpoint.id }),
+                   checkpoint.lastReadDate > documents[i].lastReadDate {
+                    print("Restoring progress from checkpoint for \(documents[i].name): word \(checkpoint.wordIndex)")
+                    documents[i].currentWordIndex = checkpoint.wordIndex
+                    documents[i].wordsPerMinute = checkpoint.wpm
+                    documents[i].lastReadDate = checkpoint.lastReadDate
+                    checkpointSaveNeeded = true
+                }
+            }
+            if checkpointSaveNeeded {
+                needsMigrationSave = true
+            }
+        }
+        
         if needsMigrationSave {
             saveDocuments()
         }
         
-        // 3. Process Inbox (Merge new items from Share Extension)
-        processInbox()
+        // 2.7 Load Folders
+        if let foldersUrl = foldersFileURL,
+           let data = try? Data(contentsOf: foldersUrl),
+           let decoded = try? JSONDecoder().decode([DocumentFolder].self, from: data) {
+            folders = decoded
+        }
+        
+        // 2.8 Load Inbox
+        if let inboxUrl = inboxFileURL,
+           let data = try? Data(contentsOf: inboxUrl),
+           let decoded = try? JSONDecoder().decode([ReadingDocument].self, from: data) {
+            inboxDocuments = decoded.sorted(by: { $0.lastReadDate > $1.lastReadDate })
+        }
+        
+        // 3. Process Shared Inbox (Merge new items from Share Extension)
+        processSharedInbox()
     }
     
     // MARK: - Inbox Pattern (Share Extension Support)
@@ -425,9 +618,9 @@ class LibraryManager: ObservableObject {
         Self.saveToInbox(document, content: content)
     }
     
-    /// Merge files from Inbox into the main library
-    func processInbox() {
-        guard let inbox = inboxURL else { return }
+    /// Merge files from Shared Inbox into the main inbox
+    func processSharedInbox() {
+        guard let inbox = sharedInboxURL else { return }
         
         // Ensure Inbox exists
         if !FileManager.default.fileExists(atPath: inbox.path) {
@@ -455,34 +648,94 @@ class LibraryManager: ObservableObject {
                         
                         // Delete processed file
                         try FileManager.default.removeItem(at: url)
-                        print("Processed and deleted inbox item: \(doc.name)")
+                        print("Processed and deleted shared inbox item: \(doc.name)")
                     } catch {
-                        print("Failed to process inbox item at \(url): \(error)")
+                        print("Failed to process shared inbox item at \(url): \(error)")
                     }
                 }
             }
             
             if !newDocs.isEmpty {
-                // Merge into main documents
+                // Merge into main inbox
                 // We add them to the top
                 for item in newDocs {
                     let doc = item.doc
                     // Save content
                     saveContent(item.content, for: doc.id)
                     // Avoid duplicates by ID or Name
-                    if let existingIndex = documents.firstIndex(where: { $0.id == doc.id || $0.name == doc.name }) {
-                        var updatedDoc = documents[existingIndex]
+                    if let existingIndex = inboxDocuments.firstIndex(where: { $0.id == doc.id || $0.name == doc.name }) {
+                        var updatedDoc = inboxDocuments[existingIndex]
                         updatedDoc.lastReadDate = Date()
-                        documents.remove(at: existingIndex)
-                        documents.insert(updatedDoc, at: 0)
+                        inboxDocuments.remove(at: existingIndex)
+                        inboxDocuments.insert(updatedDoc, at: 0)
                     } else {
-                        documents.insert(doc, at: 0)
+                        inboxDocuments.insert(doc, at: 0)
                     }
                 }
-                saveDocuments()
+                saveInbox()
             }
         } catch {
-            print("Error processing Inbox: \(error)")
+            print("Error processing Shared Inbox: \(error)")
+        }
+    }
+    
+    // MARK: - Inbox & Folder Operations
+    
+    /// Accept a document from the inbox into the main library
+    func acceptInboxItem(_ document: ReadingDocument, intoFolder folderId: UUID? = nil) {
+        guard let index = inboxDocuments.firstIndex(where: { $0.id == document.id }) else { return }
+        
+        var docToMove = inboxDocuments.remove(at: index)
+        docToMove.lastReadDate = Date()
+        docToMove.folderId = folderId
+        
+        documents.insert(docToMove, at: 0)
+        saveDocuments()
+        // `saveDocuments` saves inbox as well
+    }
+    
+    /// Delete a document from the inbox entirely
+    func deleteInboxItem(_ document: ReadingDocument) {
+        inboxDocuments.removeAll(where: { $0.id == document.id })
+        deleteContent(for: document.id)
+        deleteFigureImages(for: document.id)
+        saveInbox()
+    }
+    
+    /// Create a new folder
+    @discardableResult
+    func createFolder(name: String) -> DocumentFolder {
+        let folder = DocumentFolder(name: name)
+        folders.append(folder)
+        saveFolders()
+        return folder
+    }
+    
+    /// Rename a folder
+    func renameFolder(id: UUID, newName: String) {
+        if let index = folders.firstIndex(where: { $0.id == id }) {
+            folders[index].name = newName
+            saveFolders()
+        }
+    }
+    
+    /// Delete a folder without deleting its contents
+    func deleteFolder(id: UUID) {
+        folders.removeAll(where: { $0.id == id })
+        // Clear folderId from any documents associated with it
+        for i in 0..<documents.count {
+            if documents[i].folderId == id {
+                documents[i].folderId = nil
+            }
+        }
+        saveDocuments()
+    }
+    
+    /// Assign a document to a folder
+    func assignDocument(id: UUID, to folderId: UUID?) {
+        if let index = documents.firstIndex(where: { $0.id == id }) {
+            documents[index].folderId = folderId
+            saveDocumentsAsync()
         }
     }
 }

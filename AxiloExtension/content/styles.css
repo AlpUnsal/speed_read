@@ -1,80 +1,125 @@
-/* Axilo Overlay Styles - iOS Mismatched to Web */
+/* === Themes (matching iOS app SettingsManager.swift exactly) === */
 
+/* Default / Cream */
 :host {
   all: initial;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: Georgia, 'Times New Roman', Times, serif;
   --axilo-red: #E63946;
-  --axilo-bg: rgba(10, 10, 10, 0.98);
-  --axilo-text-dim: #777777;
-  --axilo-text-main: #FFFFFF;
-  --axilo-icon-color: #AAAAAA;
+  --axilo-bg: #FDFBD4;
+  --axilo-text-main: #1A1A1A;
+  --axilo-text-dim: #666666;
+  --axilo-icon-color: #666666;
+  --axilo-track-bg: #EAE8BD;
+  --axilo-modal-bg: #FFFCE2;
+  --axilo-modal-border: rgba(0,0,0,0.08);
 }
 
+/* Black */
+.axilo-theme-black {
+  --axilo-bg: #000000;
+  --axilo-text-main: #E5E5E5;
+  --axilo-text-dim: #888888;
+  --axilo-icon-color: #888888;
+  --axilo-track-bg: #2A2A2A;
+  --axilo-modal-bg: #151515;
+  --axilo-modal-border: rgba(255,255,255,0.06);
+}
+
+/* Grey */
+.axilo-theme-grey {
+  --axilo-bg: #1A1A1A;
+  --axilo-text-main: #E5E5E5;
+  --axilo-text-dim: #888888;
+  --axilo-icon-color: #888888;
+  --axilo-track-bg: #2A2A2A;
+  --axilo-modal-bg: #232323;
+  --axilo-modal-border: rgba(255,255,255,0.06);
+}
+
+/* White */
+.axilo-theme-white {
+  --axilo-bg: #FFFFFF;
+  --axilo-text-main: #1A1A1A;
+  --axilo-text-dim: #666666;
+  --axilo-icon-color: #666666;
+  --axilo-track-bg: #E5E5E5;
+  --axilo-modal-bg: #F9F9F9;
+  --axilo-modal-border: rgba(0,0,0,0.08);
+}
+
+/* === Full-Screen Overlay === */
 .axilo-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
+  top: 0; left: 0;
+  width: 100vw; 
   height: 100vh;
+  /* Use -webkit-fill-available so iOS Safari naturally collapses the address bar on user scroll/drag */
+  min-height: -webkit-fill-available;
   background-color: var(--axilo-bg);
-  backdrop-filter: blur(10px);
   z-index: 2147483647;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   color: var(--axilo-text-main);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
 }
-
-.axilo-overlay.visible {
-  opacity: 1;
-}
+.axilo-overlay.visible { opacity: 1; }
 
 /* === Top Bar === */
 .axilo-top-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 12px 16px;
+  padding-top: max(12px, env(safe-area-inset-top, 12px));
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* === Icon Buttons === */
 .axilo-icon-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 8px;
+  padding: 10px;
   color: var(--axilo-icon-color);
-  opacity: 0.8;
-  transition: opacity 0.2s, transform 0.1s;
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s;
 }
-
-.axilo-icon-btn:hover {
-  opacity: 1;
-}
-
-.axilo-icon-btn:active {
-  transform: scale(0.92);
-}
-
+.axilo-icon-btn:active { transform: scale(0.88); }
 .axilo-icon-btn svg {
-  width: 24px;
-  height: 24px;
+  width: 20px; height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* For filled icons (play triangle) */
+.axilo-icon-btn svg.filled {
   fill: currentColor;
+  stroke: none;
 }
 
+/* Progress text (centered in top bar) */
 .axilo-progress-text {
-  font-family: "Georgia", serif; /* Fallback for EB Garamond */
-  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
   color: var(--axilo-text-dim);
-  font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 /* === Main Reader Area === */
@@ -83,133 +128,393 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
   position: relative;
   width: 100%;
+  min-height: 0;
 }
 
 .axilo-rsvp-word {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; /* User preferred font eventually */
-  font-size: 56px;
-  font-weight: 600;
-  color: #E0E0E0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--axilo-text-main);
+  position: absolute;
+  white-space: nowrap;
   letter-spacing: -0.5px;
 }
-
 .axilo-rsvp-center {
   color: var(--axilo-red);
-  font-weight: 700;
+  font-weight: 400;
+  position: relative;
 }
 
-/* === Bottom Control Bar === */
+/* === Focus Lines (fixed at ORP anchor) === */
+.axilo-focus-line {
+  position: absolute;
+  left: 33%; /* Must match anchorX in content.js (0.33) */
+  width: 1.5px;
+  height: 24px;
+  background-color: var(--axilo-text-main);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  z-index: 7;
+}
+.axilo-focus-line.top {
+  bottom: calc(50% + 40px);
+}
+.axilo-focus-line.bottom {
+  top: calc(50% + 40px);
+}
+.axilo-focus-lines .axilo-focus-line {
+  opacity: 0.3;
+}
+
+/* === Touch Zones (invisible) === */
+.axilo-touch-zone {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  z-index: 5;
+}
+.axilo-touch-center {
+  left: 25%; width: 50%;
+}
+.axilo-touch-right {
+  right: 0; width: 30%;
+}
+.axilo-touch-left {
+  left: 0; width: 25%;
+}
+
+/* === WPM Feedback === */
+.axilo-wpm-feedback {
+  position: absolute;
+  right: 15%;
+  top: 45%;
+  transform: translateY(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 300;
+  color: #888888;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 6;
+}
+.axilo-wpm-feedback.visible { opacity: 1; }
+
+/* === Context Peek Overlay === */
+.axilo-context-peek {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: var(--axilo-bg);
+  opacity: 0.97;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  z-index: 8;
+  pointer-events: auto;
+}
+.axilo-peek-word {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 40px;
+  font-weight: 300;
+  color: var(--axilo-text-dim);
+  opacity: 0.5;
+  text-align: center;
+  transition: opacity 0.15s;
+}
+.axilo-peek-word.current {
+  font-size: 40px;
+  font-weight: 300;
+  color: var(--axilo-text-main);
+  opacity: 1;
+}
+.axilo-peek-word.current .axilo-rsvp-center {
+  color: var(--axilo-red);
+  font-weight: 400;
+}
+
+/* === Bottom Bar === */
 .axilo-bottom-bar {
   display: flex;
-  flex-direction: column; /* Stack controls and progress bar */
+  flex-direction: column;
   width: 100%;
+  flex-shrink: 0;
+  z-index: 10;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-
 .axilo-controls-row {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 40px;
-  padding-bottom: 40px;
+  gap: 20px;
+  padding: 8px 16px;
+  /* Additional 60px padding pushes the UI safely above Safari's obstinate bottom URL bar. */
+  padding-bottom: calc(max(16px, env(safe-area-inset-bottom, 16px)) + 60px);
 }
-
 .axilo-play-btn svg {
-  width: 44px; /* Larger play button */
-  height: 44px;
+  width: 26px; height: 26px;
+}
+.axilo-controls-row .disabled {
+  opacity: 0.3;
+  pointer-events: none;
 }
 
-/* Progress Bar (Very thin at bottom) */
+/* === Progress Bar === */
 .axilo-progress-track {
   width: 100%;
-  height: 4px;
-  background-color: #2A2A2A;
+  height: 12px;
+  margin-top: -4px; /* Expand hit area but keep visual size */
+  background-color: transparent;
   position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
 }
-
+.axilo-progress-bg {
+  width: 100%;
+  height: 3px;
+  background-color: var(--axilo-track-bg);
+  position: absolute;
+}
 .axilo-progress-fill {
-  height: 100%;
+  position: absolute;
+  left: 0;
+  height: 3px;
   background-color: var(--axilo-red);
   width: 0%;
-  transition: width 0.1s linear;
+  transition: width 0.15s linear;
 }
 
-/* WPM Slider overlay (Top right or integrated? iOS uses swipe gesture)
-   For web, let's keep a small slider in the corner or settings menu.
-   For now, we'll put it near the bottom or hidden in a settings toggler.
-   Let's just put it in the top bar for now alongside progress? 
-   No, let's stick to the iOS design -> Swipe up/down gesture support would be cool.
-   But for mouse users, we need a slider. Let's start with a subtle slider in the bottom area. */
-
+/* === Settings Menu Panel === */
 .axilo-speed-control {
-    position: absolute;
-    bottom: 100px;
-    right: 30px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    opacity: 0.5;
-    transition: opacity 0.3s;
+  position: absolute;
+  top: 60px; right: 16px;
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--axilo-modal-bg);
+  border: 1px solid var(--axilo-modal-border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 16px;
+  border-radius: 12px;
+  z-index: 20;
+  width: 200px;
 }
+.axilo-speed-control.open { display: flex; }
 
-.axilo-speed-control:hover {
-    opacity: 1;
-}
-
-.axilo-wpm-label {
-    font-size: 12px;
-    color: var(--axilo-text-dim);
-}
-
-/* Scroll View */
-.axilo-scroll-container {
-  flex: 1;
+.axilo-setting-row {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  gap: 6px;
+}
+.axilo-setting-row-horizontal {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.axilo-setting-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--axilo-text-dim);
+}
+
+.axilo-setting-select {
+  width: 100%;
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.1);
+  background: transparent;
+  color: var(--axilo-text-main);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.axilo-setting-slider {
+  width: 100%;
+  accent-color: var(--axilo-red);
+}
+
+/* iOS Style Toggle Switch */
+.axilo-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+.axilo-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.axilo-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .2s;
+  border-radius: 24px;
+}
+.axilo-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+input:checked + .axilo-slider {
+  background-color: var(--axilo-red);
+}
+input:checked + .axilo-slider:before {
+  transform: translateX(20px);
+}
+
+/* === Modal Menus (Search, List) === */
+.axilo-modal-overlay {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.axilo-modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.axilo-modal {
+  background: var(--axilo-modal-bg);
+  width: 85%;
+  max-width: 400px;
+  max-height: 70%;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+.axilo-modal-header {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--axilo-text-main);
+  text-align: center;
+}
+.axilo-modal-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(0,0,0,0.03);
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--axilo-text-main);
+  outline: none;
+}
+.axilo-modal-input:focus {
+  border-color: var(--axilo-red);
+}
+.axilo-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 300px;
+  padding-right: 8px;
+}
+.axilo-modal-list-item {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  color: var(--axilo-text-main);
+  padding: 12px;
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.axilo-modal-list-item:active {
+  background: rgba(0,0,0,0.08);
+}
+.axilo-modal-btn {
+  background: var(--axilo-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.axilo-modal-btn:active {
+  opacity: 0.8;
+}
+
+/* === One-Time Hint Toast === */
+.axilo-hint {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 10px 18px;
+  border-radius: 20px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.axilo-hint.fade-out {
+  opacity: 0;
+}
+
+/* === Scroll Mode (hidden by default) === */
+.axilo-scroll-container {
+  flex: 1; width: 100%;
   max-width: 700px;
-  overflow-y: hidden; /* Canvas for custom scrolling? Or auto? For engine we use overflow hidden and JS scroll usually, or just smooth scroll */
-  /* For our simple engine, we manipulate scrollTop, so overflow-y: hidden prevents user scroll interference if we want strict control,
-     but for "Guided Reading", usually we WANT user to be able to scroll too? 
-     Let's allow user scroll but hide scrollbar for aesthetics? */
   overflow-y: auto;
   padding: 40px 20px;
   box-sizing: border-box;
-  font-size: 24px;
-  line-height: 1.6;
-  color: #e0e0e0;
-  display: none; /* Hidden by default */
-  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+  font-size: 22px;
+  line-height: 1.7;
+  color: var(--axilo-text-main);
+  display: none;
 }
+.axilo-scroll-container.active { display: block; }
+.axilo-reader-container.hidden { display: none; }
 
-.axilo-scroll-container.active {
-    display: block;
+/* === Hidden UI Mode (Activated on swipe up) === */
+.axilo-overlay.ui-hidden .axilo-top-bar {
+  transform: translateY(-100%);
 }
-
-/* Hide RSVP when not active */
-.axilo-reader-container.hidden {
-    display: none;
-}
-
-/* Justifies text for reading */
-.axilo-scroll-content {
-    text-align: justify;
-}
-
-/* Highlight line (overlay) */
-.axilo-highlight-line {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 40px;
-    background: rgba(255, 59, 48, 0.1);
-    border-left: 4px solid var(--axilo-red);
-    pointer-events: none;
-    display: none; /* Only for scroll mode? layout is tricky */
+.axilo-overlay.ui-hidden .axilo-bottom-bar {
+  transform: translateY(100%);
 }

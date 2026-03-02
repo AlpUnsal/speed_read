@@ -10,6 +10,7 @@ class EPUBParser {
     struct ParseResult {
         let text: String
         let chapters: [NavigationPoint]
+        let title: String?
     }
     
     /// Parse EPUB and return text only (backward compatible)
@@ -53,7 +54,7 @@ class EPUBParser {
             }
             
             let opfParser = OPFParser(data: opfData)
-            let (manifest, spine) = opfParser.parse()
+            let (manifest, spine, parsedTitle) = opfParser.parse()
             
             // 3. Try to parse NCX for chapter titles
             var chapterTitles: [String: String] = [:] // href -> title
@@ -119,7 +120,7 @@ class EPUBParser {
                             var subChapterStarts: [(href: String, index: Int)] = []
                             
                             // If the whole file itself is a chapter without fragments
-                            if let mainTitle = chapterTitles[href] {
+                            if chapterTitles[href] != nil {
                                 subChapterStarts.append((href, currentWordIndex))
                             }
                             
@@ -202,10 +203,10 @@ class EPUBParser {
             if chapters.isEmpty && !trimmedText.isEmpty {
                 let headings = HeadingDetector.createNavigationPoints(from: trimmedText)
                 if !headings.isEmpty {
-                    return ParseResult(text: trimmedText, chapters: headings)
+                    return ParseResult(text: trimmedText, chapters: headings, title: parsedTitle)
                 } else {
                     let pages = PageChunker.createPages(from: trimmedText)
-                    return ParseResult(text: trimmedText, chapters: pages)
+                    return ParseResult(text: trimmedText, chapters: pages, title: parsedTitle)
                 }
             }
             
@@ -214,11 +215,11 @@ class EPUBParser {
             if chapters.count <= 2 && trimmedText.count > 50000 {
                 let headings = HeadingDetector.createNavigationPoints(from: trimmedText)
                 if headings.count > chapters.count {
-                    return ParseResult(text: trimmedText, chapters: headings)
+                    return ParseResult(text: trimmedText, chapters: headings, title: parsedTitle)
                 }
             }
             
-            return ParseResult(text: trimmedText, chapters: chapters)
+            return ParseResult(text: trimmedText, chapters: chapters, title: parsedTitle)
             
         } catch {
             logger.error("EPUB parsing failed: \(error.localizedDescription)")
@@ -276,27 +277,56 @@ private class OPFParser: NSObject, XMLParserDelegate {
     private var manifest: [String: String] = [:] // id -> href
     private var spine: [String] = [] // list of idrefs
     
+    private var title: String?
+    private var inTitle = false
+    private var currentTitleText = ""
+    
     init(data: Data) {
         self.data = data
     }
     
-    func parse() -> ([String: String], [String]) {
+    func parse() -> ([String: String], [String], String?) {
         let parser = XMLParser(data: data)
         parser.delegate = self
         parser.parse()
-        return (manifest, spine)
+        
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (manifest, spine, (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil)
     }
     
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        if elementName == "item" || elementName == "opf:item" { // handle optional namespaces roughly
+        let name = elementName.lowercased()
+        
+        if name == "item" || name == "opf:item" {
             if let id = attributeDict["id"], let href = attributeDict["href"] {
                 manifest[id] = href
             }
         }
         
-        if elementName == "itemref" || elementName == "opf:itemref" {
+        if name == "itemref" || name == "opf:itemref" {
             if let idref = attributeDict["idref"] {
                 spine.append(idref)
+            }
+        }
+        
+        if name == "dc:title" || name == "title" {
+            inTitle = true
+            currentTitleText = ""
+        }
+    }
+    
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        if inTitle {
+            currentTitleText += string
+        }
+    }
+    
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        let name = elementName.lowercased()
+        if name == "dc:title" || name == "title" {
+            inTitle = false
+            if title == nil {
+                title = currentTitleText
             }
         }
     }

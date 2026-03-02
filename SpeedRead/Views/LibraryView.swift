@@ -9,6 +9,38 @@ struct LibraryView: View {
     
     @State private var documentToRename: ReadingDocument?
     @State private var newDocumentName: String = ""
+    @State private var documentForFolderSelection: ReadingDocument?
+    
+    // Add folder states
+    @State private var showCreateFolder = false
+    @State private var newFolderName: String = ""
+    @State private var presentedFolderItem: SelectedFolderItem?
+    
+    // Auto-scroll state (for drag-to-edge folder traversal)
+    @State private var autoScrollTimer: Timer? = nil
+    @State private var autoScrollInterval: TimeInterval = 0.45
+    @State private var autoScrollDirection: Int = 0  // -1 = left, 0 = stopped, 1 = right
+    @State private var autoScrollIndex: Int = 0
+    
+    // Virtual folder enumerator
+    enum SelectedFolderItem: Identifiable {
+        case library
+        case real(DocumentFolder)
+        
+        var id: String {
+            switch self {
+            case .library: return "library"
+            case .real(let folder): return folder.id.uuidString
+            }
+        }
+        
+        var folder: DocumentFolder? {
+            switch self {
+            case .library: return nil
+            case .real(let f): return f
+            }
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -23,17 +55,29 @@ struct LibraryView: View {
                         .foregroundColor(settings.textColor)
                     
                     Spacer()
+                    
+                    Button {
+                        showCreateFolder = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .foregroundColor(settings.accentColor)
+                            .padding(8)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
                 .padding(.bottom, 20)
                 
-                if libraryManager.documents.isEmpty {
+                foldersSection
+                
+                if libraryManager.documents.isEmpty && libraryManager.folders.isEmpty {
                     Spacer()
                     emptyState
                     Spacer()
-                } else {
+                } else if !libraryManager.documents.isEmpty {
                     documentList
+                } else {
+                    Spacer()
                 }
             }
         }
@@ -49,7 +93,156 @@ struct LibraryView: View {
                 if let doc = documentToRename, !newDocumentName.isEmpty {
                     libraryManager.renameDocument(id: doc.id, newName: newDocumentName)
                 }
-                documentToRename = nil
+                newFolderName = ""
+            }
+        }
+        .alert("New Folder", isPresented: $showCreateFolder) {
+            TextField("Name", text: $newFolderName)
+            Button("Cancel", role: .cancel) {
+                newFolderName = ""
+            }
+            Button("Create") {
+                if !newFolderName.isEmpty {
+                    libraryManager.createFolder(name: newFolderName)
+                }
+                newFolderName = ""
+            }
+        }
+        .sheet(item: Binding<FolderSelectionItem?>(
+            get: { documentForFolderSelection.map { FolderSelectionItem(document: $0) } },
+            set: { documentForFolderSelection = $0?.document }
+        )) { item in
+            FolderSelectionView(
+                document: item.document,
+                onSelect: { folder in
+                    libraryManager.assignDocument(id: item.document.id, to: folder?.id)
+                    documentForFolderSelection = nil
+                },
+                onCancel: {
+                    documentForFolderSelection = nil
+                }
+            )
+        }
+        .fullScreenCover(item: $presentedFolderItem) { item in
+            FolderDetailView(
+                folder: item.folder,
+                selectedDocument: $selectedDocument,
+                isReading: $isReading
+            )
+        }
+    }
+    
+    // MARK: - Folders Section
+
+    /// Ordered list of folder IDs used for programmatic scrolling (Read Later first).
+    private var orderedFolderIDs: [UUID] {
+        let readLater = libraryManager.folders.filter { $0.name == "Read Later" }
+        let others = libraryManager.folders.filter { $0.name != "Read Later" }
+        return (readLater + others).map { $0.id }
+    }
+
+    private func startAutoScroll(direction: Int, proxy: ScrollViewProxy) {
+        guard autoScrollDirection != direction else { return }
+        stopAutoScroll()
+        autoScrollDirection = direction
+        autoScrollInterval = 0.45  // always reset speed at the start
+
+        func scheduleNext() {
+            autoScrollTimer = Timer.scheduledTimer(withTimeInterval: autoScrollInterval, repeats: false) { _ in
+                let ids = orderedFolderIDs
+                guard !ids.isEmpty else { return }
+                autoScrollIndex = max(0, min(ids.count - 1, autoScrollIndex + direction))
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(ids[autoScrollIndex], anchor: .center)
+                }
+                // Accelerate: shorten interval each tick, floor at 0.08s
+                autoScrollInterval = max(0.08, autoScrollInterval * 0.85)
+                if autoScrollDirection != 0 { scheduleNext() }
+            }
+        }
+        scheduleNext()
+    }
+
+    private func stopAutoScroll() {
+        autoScrollTimer?.invalidate()
+        autoScrollTimer = nil
+        autoScrollDirection = 0
+    }
+
+    private var foldersSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Folders")
+                    .font(.custom("EBGaramond-Regular", size: 18))
+                    .foregroundColor(settings.secondaryTextColor)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 24)
+
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        // 1. "Read Later"
+                        if let readLater = libraryManager.folders.first(where: { $0.name == "Read Later" }) {
+                            FolderCard(folder: readLater) {
+                                presentedFolderItem = .real(readLater)
+                            }
+                            .id(readLater.id)
+                        } else {
+                            VirtualFolderCard(
+                                name: "Read Later",
+                                icon: "bookmark",
+                                documents: [],
+                                onDrop: { doc in
+                                    let folder = libraryManager.createFolder(name: "Read Later")
+                                    libraryManager.assignDocument(id: doc.id, to: folder.id)
+                                }
+                            ) {
+                                let newFolder = libraryManager.createFolder(name: "Read Later")
+                                presentedFolderItem = .real(newFolder)
+                            }
+                        }
+
+                        // 2. User Folders
+                        ForEach(libraryManager.folders.filter { $0.name != "Read Later" }) { folder in
+                            FolderCard(folder: folder) {
+                                presentedFolderItem = .real(folder)
+                            }
+                            .id(folder.id)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+                }
+                // Left edge zone: drag here → scroll left
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(width: 56)
+                        .contentShape(Rectangle())
+                        .dropDestination(for: ReadingDocument.self) { _, _ in false } isTargeted: { over in
+                            if over {
+                                startAutoScroll(direction: -1, proxy: proxy)
+                            } else if autoScrollDirection == -1 {
+                                stopAutoScroll()
+                            }
+                        }
+                }
+                // Right edge zone: drag here → scroll right
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(width: 56)
+                        .contentShape(Rectangle())
+                        .dropDestination(for: ReadingDocument.self) { _, _ in false } isTargeted: { over in
+                            if over {
+                                startAutoScroll(direction: 1, proxy: proxy)
+                            } else if autoScrollDirection == 1 {
+                                stopAutoScroll()
+                            }
+                        }
+                }
             }
         }
     }
@@ -101,13 +294,196 @@ struct LibraryView: View {
                             withAnimation {
                                 libraryManager.deleteDocument(document)
                             }
+                        },
+                        onMoveToFolder: {
+                            documentForFolderSelection = document
                         }
                     )
+                    .draggable(document)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
+    }
+}
+
+// MARK: - Virtual Folder Card
+struct VirtualFolderCard: View {
+    let name: String
+    let icon: String // e.g. "books.vertical"
+    let documents: [ReadingDocument]
+    /// Called when a document is dropped onto this virtual folder.
+    /// Receives the document; callers are responsible for creating the folder if needed.
+    var onDrop: ((ReadingDocument) -> Void)? = nil
+    let action: () -> Void
+    
+    @ObservedObject var settings = SettingsManager.shared
+    @State private var isDropTargeted = false
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                // 2x2 grid cover
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(settings.cardBackgroundColor)
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
+                    
+                    if documents.isEmpty {
+                        Image(systemName: icon)
+                            .font(.system(size: 32, weight: .light))
+                            .foregroundColor(settings.mutedTextColor.opacity(0.5))
+                    } else if documents.count < 4 {
+                        DocumentThumbnail(document: documents[0])
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        VStack(spacing: 2) {
+                            HStack(spacing: 2) {
+                                QuadrantThumbnail(document: documents[0])
+                                QuadrantThumbnail(document: documents[1])
+                            }
+                            HStack(spacing: 2) {
+                                QuadrantThumbnail(document: documents[2])
+                                QuadrantThumbnail(document: documents[3])
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    
+                    // Drop highlight overlay
+                    if isDropTargeted && onDrop != nil {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(settings.accentColor, lineWidth: 2.5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(settings.accentColor.opacity(0.12))
+                            )
+                    }
+                }
+                .frame(width: 140, height: 140)
+                .scaleEffect(isDropTargeted && onDrop != nil ? 1.05 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDropTargeted)
+                
+                Text(name)
+                    .font(.custom("EBGaramond-Regular", size: 16))
+                    .foregroundColor(settings.textColor)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .dropDestination(for: ReadingDocument.self) { droppedItems, _ in
+            guard let doc = droppedItems.first, let handler = onDrop else { return false }
+            handler(doc)
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+    }
+}
+
+// MARK: - Folder Card (Apple Music Style)
+struct FolderCard: View {
+    let folder: DocumentFolder
+    let action: () -> Void
+    
+    @ObservedObject var libraryManager = LibraryManager.shared
+    @ObservedObject var settings = SettingsManager.shared
+    @State private var isDropTargeted = false
+    
+    var folderDocuments: [ReadingDocument] {
+        libraryManager.documents.filter { $0.folderId == folder.id }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                // 2x2 grid cover
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(settings.cardBackgroundColor)
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
+                    
+                    if folderDocuments.isEmpty {
+                        Image(systemName: "folder")
+                            .font(.system(size: 32, weight: .light))
+                            .foregroundColor(settings.mutedTextColor.opacity(0.5))
+                    } else if folderDocuments.count < 4 {
+                        // Single full-size thumbnail for < 4 items
+                        DocumentThumbnail(document: folderDocuments[0])
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    } else {
+                        // Four quadrant thumbnails
+                        VStack(spacing: 2) {
+                            HStack(spacing: 2) {
+                                QuadrantThumbnail(document: folderDocuments[0])
+                                QuadrantThumbnail(document: folderDocuments[1])
+                            }
+                            HStack(spacing: 2) {
+                                QuadrantThumbnail(document: folderDocuments[2])
+                                QuadrantThumbnail(document: folderDocuments[3])
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    
+                    // Drop highlight overlay
+                    if isDropTargeted {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(settings.accentColor, lineWidth: 2.5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(settings.accentColor.opacity(0.12))
+                            )
+                    }
+                }
+                .frame(width: 140, height: 140)
+                .scaleEffect(isDropTargeted ? 1.05 : 1.0)
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDropTargeted)
+                
+                Text(folder.name)
+                    .font(.custom("EBGaramond-Regular", size: 16))
+                    .foregroundColor(settings.textColor)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .dropDestination(for: ReadingDocument.self) { droppedItems, _ in
+            guard let doc = droppedItems.first else { return false }
+            // Skip if document is already in this folder
+            guard doc.folderId != folder.id else { return false }
+            libraryManager.assignDocument(id: doc.id, to: folder.id)
+            return true
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+        .contextMenu {
+            Button(role: .destructive) {
+                withAnimation {
+                    libraryManager.deleteFolder(id: folder.id)
+                }
+            } label: {
+                Label("Delete Folder", systemImage: "trash")
+            }
+        }
+    }
+}
+
+struct QuadrantThumbnail: View {
+    let document: ReadingDocument?
+    @ObservedObject var settings = SettingsManager.shared
+    
+    var body: some View {
+        Group {
+            if let doc = document {
+                DocumentThumbnail(document: doc)
+                    .clipped()
+            } else {
+                Rectangle()
+                    .fill(settings.backgroundColor.opacity(0.5))
+            }
+        }
+        .frame(width: 69, height: 69) // Exactly half of 140 minus spacing
     }
 }
 
@@ -119,6 +495,8 @@ struct DocumentRow: View {
     let onRestart: () -> Void
     let onRename: () -> Void
     let onDelete: () -> Void
+    var onMoveToFolder: (() -> Void)? = nil
+    var onRemoveFromFolder: (() -> Void)? = nil
     
     @ObservedObject var settings = SettingsManager.shared
     
@@ -193,6 +571,16 @@ struct DocumentRow: View {
             }
             Button(action: onRename) {
                 Label("Rename", systemImage: "pencil")
+            }
+            if onMoveToFolder != nil {
+                Button(action: { onMoveToFolder?() }) {
+                    Label("Move to Folder", systemImage: "folder")
+                }
+            }
+            if let removeFromFolder = onRemoveFromFolder {
+                Button(action: removeFromFolder) {
+                    Label("Remove from Folder", systemImage: "folder.badge.minus")
+                }
             }
             Divider()
             Button(role: .destructive, action: onDelete) {

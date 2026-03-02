@@ -330,6 +330,7 @@ class RSVPViewModel: ObservableObject {
         }
         updateProgress()
         updateWindow(around: currentIndex)
+        checkAndTriggerFigure(at: currentIndex)
     }
     
     /// Lightweight update that doesn't trigger window re-computation
@@ -363,6 +364,13 @@ class RSVPViewModel: ObservableObject {
             self.currentIndex += 1
             self.updateProgress()
             
+            // Check if a figure should be shown at this index (auto-popup + auto-pause)
+            let newlyTriggered = self.checkAndTriggerFigure(at: self.currentIndex)
+            if newlyTriggered {
+                self.pause()
+                return  // Stop advancing — user will resume manually
+            }
+            
             // Checkpoint every 50 words
             if self.currentIndex % 50 == 0 {
                 self.onProgressUpdate?(self.currentIndex, self.wordsPerMinute)
@@ -393,6 +401,76 @@ class RSVPViewModel: ObservableObject {
     func setNavigationPoints(_ points: [NavigationPoint]) {
         self.navigationPoints = points
         currentNavigationPoint = navigationPoints.first { $0.contains(wordIndex: currentIndex) }
+    }
+    
+    // MARK: - Figure Annotations
+    
+    @Published var figureAnnotations: [FigureAnnotation] = []
+    
+    /// Set when reading crosses a figure's word index for the first time (auto-popup trigger)
+    @Published var figureToShow: FigureAnnotation? = nil
+    
+    /// IDs of figures the user has explicitly dismissed — won't auto-show again
+    /// unless the reader navigates back before the figure's word index
+    private var dismissedFigureIds: Set<UUID> = []
+    
+    /// Last index at which we checked for a new figure (avoids re-triggering)
+    private var lastFigureTriggerIndex: Int = -1
+    
+    func setFigureAnnotations(_ figures: [FigureAnnotation]) {
+        self.figureAnnotations = figures
+        dismissedFigureIds = []
+        lastFigureTriggerIndex = -1
+        figureToShow = nil
+    }
+    
+    /// Trigger a specific figure to show manually (e.g. from a menu).
+    func showKnownFigure(_ figure: FigureAnnotation) {
+        pause()
+        figureToShow = figure
+    }
+    
+    /// Call this when the user explicitly dismisses the figure overlay
+    func dismissCurrentFigure() {
+        if let f = figureToShow {
+            dismissedFigureIds.insert(f.id)
+        }
+        figureToShow = nil
+    }
+    
+    /// Check if a new figure should be shown at the current word index.
+    /// Called from the timer loop so figures pop up the moment reading reaches them.
+    /// Returns `true` if it newly triggered a figure to pull up (so the reader should pause).
+    @discardableResult
+    private func checkAndTriggerFigure(at index: Int) -> Bool {
+        guard !figureAnnotations.isEmpty else { return false }
+        // Don't re-check the same index
+        guard index != lastFigureTriggerIndex else { return false }
+        lastFigureTriggerIndex = index
+        
+        var newlyTriggered = false
+        
+        // Find a figure whose wordIndex we just crossed (within a small look-behind window)
+        let lookBehind = 5
+        for figure in figureAnnotations {
+            let wi = figure.wordIndex
+            guard wi > 0 else { continue }
+            // Trigger when we first arrive at or just past the figure's word index
+            if index >= wi && index <= wi + lookBehind {
+                if !dismissedFigureIds.contains(figure.id) {
+                    if figureToShow?.id != figure.id {
+                        figureToShow = figure
+                        newlyTriggered = true
+                    }
+                }
+            }
+            // If we navigated back before a dismissed figure, un-dismiss it
+            if index < wi {
+                dismissedFigureIds.remove(figure.id)
+            }
+        }
+        
+        return newlyTriggered
     }
     
     /// Jump to the next section (chapter/page)

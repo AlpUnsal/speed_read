@@ -10,6 +10,7 @@ class DOCXParser {
     struct ParseResult {
         let text: String
         let navigationPoints: [NavigationPoint]
+        let title: String?
     }
     
     /// Parse DOCX and return text only (backward compatible)
@@ -70,7 +71,22 @@ class DOCXParser {
                 navigationPoints.append(point)
             }
             
-            return ParseResult(text: extractedText, navigationPoints: navigationPoints)
+            // Try to extract title from docProps/core.xml
+            var extractedTitle: String? = nil
+            let coreXMLURL = tempDir.appendingPathComponent("docProps/core.xml")
+            if let coreXMLData = try? Data(contentsOf: coreXMLURL),
+               let coreXMLString = String(data: coreXMLData, encoding: .utf8) {
+                // Quick regex to grab dc:title
+                if let range = coreXMLString.range(of: "(?<=<dc:title>).*?(?=</dc:title>)", options: .regularExpression) {
+                    let rawTitle = String(coreXMLString[range])
+                    let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        extractedTitle = trimmed
+                    }
+                }
+            }
+            
+            return ParseResult(text: extractedText, navigationPoints: navigationPoints, title: extractedTitle)
             
         } catch {
             logger.error("DOCX parsing failed: \(error.localizedDescription)")
