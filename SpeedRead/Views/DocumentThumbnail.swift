@@ -46,6 +46,11 @@ struct DocumentThumbnail: View {
         .onAppear {
             loadThumbnail()
         }
+        .onChange(of: document.id) { _, _ in
+            thumbnailImage = nil
+            isLoading = true
+            loadThumbnail()
+        }
     }
     
     private var fallbackCover: some View {

@@ -159,17 +159,18 @@ private class DOCXContentParser: NSObject, XMLParserDelegate {
         if elementName == "w:t" || elementName.hasSuffix(":t") {
             extractedText += currentText
             currentParagraphText += currentText
-            
-            // Count words as we go
-            let words = TextTokenizer.tokenize(currentText)
-            currentWordIndex += words.count
-            
             inTextElement = false
         }
-        
+
         // End of paragraph
         if elementName == "w:p" || elementName.hasSuffix(":p") {
-            extractedText += "\n"
+            extractedText += "\n\n"
+
+            // Count words once over the whole paragraph — runs concatenate
+            // with no separator and Word splits single words across runs, so
+            // per-run counting overcounts and drifts every heading index
+            // after it.
+            currentWordIndex += TextTokenizer.tokenize(currentParagraphText).count
             
             // Check if this paragraph is a heading
             if let style = currentParagraphStyle, !currentParagraphText.isEmpty {

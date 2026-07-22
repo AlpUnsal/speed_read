@@ -209,10 +209,12 @@
   z-index: 7;
 }
 .axilo-focus-line.top {
-  bottom: calc(50% + 40px);
+  /* Closer to text: previously 40px, decreased to accommodate x-height */
+  bottom: calc(50% + 32px);
 }
 .axilo-focus-line.bottom {
-  top: calc(50% + 40px);
+  /* Further from text: previously 40px, increased to clear descenders safely, slightly adjusted up */
+  top: calc(50% + 48px);
 }
 .axilo-focus-lines .axilo-focus-line {
   opacity: 0.3;

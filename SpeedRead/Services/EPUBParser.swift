@@ -111,56 +111,93 @@ class EPUBParser {
                             }
                         }
                         
-                        let text = DocumentParser.extractTextFromHTML(processedHTML)
-                        let rawWords = TextTokenizer.tokenize(text)
-                        
-                        if !rawWords.isEmpty {
-                            // Find where our markers ended up and clean the text
-                            var cleanWords: [String] = []
-                            var subChapterStarts: [(href: String, index: Int)] = []
-                            
-                            // If the whole file itself is a chapter without fragments
-                            if chapterTitles[href] != nil {
-                                subChapterStarts.append((href, currentWordIndex))
-                            }
-                            
-                            for word in rawWords {
-                                let lowerWord = word.lowercased().trimmingCharacters(in: .punctuationCharacters)
-                                if lowerWord.hasPrefix("axilomarker") && lowerWord.hasSuffix("axilo") {
-                                    let idxString = String(lowerWord.dropFirst(11).dropLast(5))
-                                    if let idx = Int(idxString), let fullHref = indicesToHrefs[idx] {
-                                        if chapterTitles[fullHref] != nil {
-                                            subChapterStarts.append((fullHref, currentWordIndex + cleanWords.count))
-                                        }
-                                    }
-                                } else {
-                                    cleanWords.append(word)
+                        let text = HTMLHelper.extractTextFromHTMLStructured(processedHTML)
+
+                        // Find markers and their word-index positions, then remove from text
+                        // Match only spaces/tabs around the marker — \s would
+                        // eat the \n\n before a sub-chapter heading, fusing the
+                        // heading onto the previous paragraph and shifting
+                        // every downstream word index.
+                        let markerPattern = try! NSRegularExpression(
+                            pattern: "[ \\t]*axilomarker(\\d+)axilo[ \\t]*",
+                            options: .caseInsensitive
+                        )
+                        let nsText = text as NSString
+                        let matches = markerPattern.matches(
+                            in: text,
+                            range: NSRange(location: 0, length: nsText.length)
+                        )
+
+                        var subChapterStarts: [(href: String, index: Int)] = []
+
+                        // If the whole file itself is a chapter without fragments
+                        if chapterTitles[href] != nil {
+                            subChapterStarts.append((href, currentWordIndex))
+                        }
+
+                        // For each marker, compute its word position in marker-free text
+                        for match in matches {
+                            let idxRange = match.range(at: 1)
+                            let idxString = nsText.substring(with: idxRange)
+                            if let idx = Int(idxString), let fullHref = indicesToHrefs[idx] {
+                                if chapterTitles[fullHref] != nil {
+                                    // Count words in text before this marker, excluding other markers
+                                    let textBefore = nsText.substring(to: match.range.location)
+                                    let cleanBefore = markerPattern.stringByReplacingMatches(
+                                        in: textBefore,
+                                        range: NSRange(location: 0, length: textBefore.count),
+                                        withTemplate: " "
+                                    )
+                                    let wordsBefore = TextTokenizer.tokenize(cleanBefore).count
+                                    subChapterStarts.append((fullHref, currentWordIndex + wordsBefore))
                                 }
                             }
-                            
-                            // Build full clean text
-                            let chapterCleanText = cleanWords.joined(separator: " ")
+                        }
+
+                        // Remove all markers from text, preserving paragraph breaks (\n)
+                        var cleanText = markerPattern.stringByReplacingMatches(
+                            in: text,
+                            range: NSRange(location: 0, length: nsText.length),
+                            withTemplate: " "
+                        )
+                        // Collapse runs of spaces (but preserve newlines)
+                        cleanText = cleanText.replacingOccurrences(
+                            of: " {2,}", with: " ", options: .regularExpression
+                        )
+                        // Where a marker sat on its own line, its removal
+                        // leaves runs like "\n\n \n\n" — collapse any
+                        // whitespace-interleaved newline run to one paragraph
+                        // break so no stray empty paragraph renders.
+                        cleanText = cleanText.replacingOccurrences(
+                            of: "\n[ \t]*(\n[ \t]*)+", with: "\n\n", options: .regularExpression
+                        )
+
+                        let cleanWords = TextTokenizer.tokenize(cleanText)
+
+                        if !cleanWords.isEmpty {
+                            // Preserve paragraph structure from HTML extraction
+                            let chapterCleanText = cleanText.trimmingCharacters(in: .whitespacesAndNewlines)
                             fullText += chapterCleanText + "\n\n"
-                            
+
                             // IF NO CHAPTERS WERE IDENTIFIED (no explicit title, no fragments)
                             // Fallback to making the whole file one section
                             if subChapterStarts.isEmpty {
                                 subChapterStarts.append((href, currentWordIndex))
                             }
-                            
+
                             // Create Navigation Points
                             for (i, startNode) in subChapterStarts.enumerated() {
                                 let chapterTitle = chapterTitles[startNode.href] ?? "Chapter \(chapters.count + 1)"
-                                
+
                                 let nWordStart = startNode.index
                                 let nWordEnd: Int
-                                
+
                                 if i + 1 < subChapterStarts.count {
                                     nWordEnd = subChapterStarts[i + 1].index
                                 } else {
                                     nWordEnd = currentWordIndex + cleanWords.count
                                 }
-                                
+
                                 // Only add if it actually has content
                                 if nWordEnd > nWordStart {
                                     let chapter = NavigationPoint(
@@ -172,7 +209,7 @@ class EPUBParser {
                                     chapters.append(chapter)
                                 }
                             }
-                            
+
                             currentWordIndex += cleanWords.count
                         }
                     } else {

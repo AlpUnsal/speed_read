@@ -100,11 +100,13 @@ struct InboxView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button(action: {
                         isPresented = false
+                    }) {
+                        Text("Done")
+                            .font(.custom("EBGaramond-Regular", size: 16))
+                            .foregroundColor(settings.accentColor)
                     }
-                    .font(.custom("EBGaramond-Regular", size: 16))
-                    .foregroundColor(settings.accentColor)
                 }
             }
             .sheet(item: Binding<FolderSelectionItem?>(
@@ -370,19 +372,32 @@ struct FolderSelectionView: View {
                     .foregroundColor(settings.mutedTextColor)
                 }
             }
-            .alert("New Folder", isPresented: $showNewFolderAlert) {
-                TextField("Folder name", text: $newFolderName)
-                Button("Cancel", role: .cancel) {
-                    newFolderName = ""
-                }
-                Button("Create") {
-                    if !newFolderName.trimmingCharacters(in: .whitespaces).isEmpty {
-                        let folder = libraryManager.createFolder(name: newFolderName.trimmingCharacters(in: .whitespaces))
-                        onSelect(folder)
-                        dismiss()
+            
+            // Custom Overhead Popups
+            if showNewFolderAlert {
+                CustomAlertView(
+                    title: "New Folder",
+                    text: $newFolderName,
+                    placeholder: "Folder name",
+                    saveTitle: "Create",
+                    onCancel: {
+                        withAnimation {
+                            showNewFolderAlert = false
+                            newFolderName = ""
+                        }
+                    },
+                    onSave: {
+                        if !newFolderName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            let folder = libraryManager.createFolder(name: newFolderName.trimmingCharacters(in: .whitespaces))
+                            onSelect(folder)
+                            dismiss()
+                        }
+                        withAnimation {
+                            showNewFolderAlert = false
+                            newFolderName = ""
+                        }
                     }
-                    newFolderName = ""
-                }
+                )
             }
         }
     }

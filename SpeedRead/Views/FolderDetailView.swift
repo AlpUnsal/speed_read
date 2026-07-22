@@ -26,7 +26,7 @@ struct FolderDetailView: View {
     }
 
     var folderName: String {
-        folder?.name ?? "Library"
+        folder?.name ?? "All Books"
     }
 
     var folderDocuments: [ReadingDocument] {
@@ -34,7 +34,8 @@ struct FolderDetailView: View {
         if let folder = folder {
             docs = libraryManager.documents.filter { $0.folderId == folder.id }
         } else {
-            docs = libraryManager.documents.filter { $0.folderId == nil }
+            // "All Books" shows everything
+            docs = libraryManager.documents
         }
 
         switch sortOption {
@@ -54,16 +55,20 @@ struct FolderDetailView: View {
                     .ignoresSafeArea()
 
                 if folderDocuments.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 48, weight: .ultraLight))
-                            .foregroundColor(settings.mutedTextColor)
-                        Text("Folder is empty")
-                            .font(.custom("EBGaramond-Regular", size: 18))
-                            .foregroundColor(settings.secondaryTextColor)
-                        Text("Move documents here from your library.")
-                            .font(.custom("EBGaramond-Regular", size: 14))
-                            .foregroundColor(settings.mutedTextColor)
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 48, weight: .ultraLight))
+                                .foregroundColor(settings.mutedTextColor)
+                            Text("Folder is empty")
+                                .font(.custom("EBGaramond-Regular", size: 18))
+                                .foregroundColor(settings.secondaryTextColor)
+                            Text("Move documents here from your library.")
+                                .font(.custom("EBGaramond-Regular", size: 14))
+                                .foregroundColor(settings.mutedTextColor)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 100)
                     }
                 } else {
                     ScrollView {
@@ -155,21 +160,7 @@ struct FolderDetailView: View {
                     }
                 }
             }
-            .alert("Rename Document", isPresented: Binding(
-                get: { documentToRename != nil },
-                set: { if !$0 { documentToRename = nil } }
-            )) {
-                TextField("Name", text: $newDocumentName)
-                Button("Cancel", role: .cancel) {
-                    documentToRename = nil
-                }
-                Button("Save") {
-                    if let doc = documentToRename, !newDocumentName.isEmpty {
-                        libraryManager.renameDocument(id: doc.id, newName: newDocumentName)
-                    }
-                    documentToRename = nil
-                }
-            }
+            // Sheets and Popups
             .sheet(item: Binding<FolderSelectionItem?>(
                 get: { documentForFolderSelection.map { FolderSelectionItem(document: $0) } },
                 set: { documentForFolderSelection = $0?.document }
@@ -184,7 +175,41 @@ struct FolderDetailView: View {
                         documentForFolderSelection = nil
                     }
                 )
+                .presentationDragIndicator(.visible)
+                .presentationBackground(settings.backgroundColor)
+            }
+            
+            // Custom Overhead Popups
+            if documentToRename != nil {
+                CustomAlertView(
+                    title: "Rename Document",
+                    text: $newDocumentName,
+                    placeholder: "Document name",
+                    saveTitle: "Save",
+                    onCancel: {
+                        withAnimation {
+                            documentToRename = nil
+                        }
+                    },
+                    onSave: {
+                        if let doc = documentToRename, !newDocumentName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            libraryManager.renameDocument(id: doc.id, newName: newDocumentName.trimmingCharacters(in: .whitespaces))
+                        }
+                        withAnimation {
+                            documentToRename = nil
+                        }
+                    }
+                )
             }
         }
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    // Dismiss if swiping right from the left edge
+                    if value.startLocation.x < 50 && value.translation.width > 50 {
+                        dismiss()
+                    }
+                }
+        )
     }
 }

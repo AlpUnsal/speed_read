@@ -192,7 +192,41 @@ struct HeadingDetector {
                 }
             }
         }
-        
+
         return nil
+    }
+}
+
+/// Verifies that a paragraph plausibly IS the heading a NavigationPoint claims —
+/// nav-point word indices are computed by the parsers with their own word
+/// counting, which can drift from the reader's tokenization, so index equality
+/// alone must never grant heading styling.
+struct HeadingMatcher {
+
+    /// Lowercased, diacritic-folded, alphanumerics only, spaces removed —
+    /// so "Chapter 1: The Beginning" and "CHAPTER 1  THE BEGINNING" agree.
+    static func normalize<S: StringProtocol>(_ s: S) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .unicodeScalars
+            .filter { CharacterSet.alphanumerics.contains($0) }
+            .reduce(into: "") { $0.unicodeScalars.append($1) }
+    }
+
+    /// True when the paragraph's opening text plausibly matches the nav title.
+    /// Matching is anchored to the paragraph start — a body paragraph merely
+    /// containing the title mid-text must not match.
+    static func paragraphStartMatchesTitle(paragraphPrefix: String, title: String) -> Bool {
+        let nt = normalize(title)
+        // Too short to verify meaningfully (e.g. "I", "1") — don't suppress.
+        guard nt.count >= 3 else { return true }
+        let np = normalize(paragraphPrefix)
+        if np.hasPrefix(nt) { return true }
+        // Title longer than the paragraph text (e.g. NCX "Chapter 1: The
+        // Beginning" vs heading text "Chapter 1") — require enough of the
+        // paragraph to make the prefix meaningful.
+        if np.count >= 4 && nt.hasPrefix(np) { return true }
+        // NCX-style "Chapter 1: The Beginning" vs body text "THE BEGINNING".
+        if np.count >= 3 && nt.hasSuffix(np) { return true }
+        return false
     }
 }

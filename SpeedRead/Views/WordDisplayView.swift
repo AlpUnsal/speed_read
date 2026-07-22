@@ -43,25 +43,33 @@ struct WordDisplayView: View {
                         .position(x: calculateXPosition(in: geometry), y: geometry.size.height / 2)
                     
                     if settings.showORPEmphasisLines {
-                        let anchorX = geometry.size.width * 0.38
+                        let anchorX = geometry.size.width * 0.325
                         let centerY = geometry.size.height / 2
                         
                         // Use constants based on 48.0 max font size for stability
-                        let baseFontSize: CGFloat = 48.0
+                        // Scaled to match landscape mode and user font scaling settings
+                        let scaleFactor = fontSize / WordDisplayView.fontSize(for: word)
+                        let baseFontSize: CGFloat = 48.0 * scaleFactor
                         let lineLength = baseFontSize * 0.25
-                        let lineSpacing = baseFontSize * 0.4
                         
-                        VStack(spacing: 0) {
+                        // Asymmetric spacing:
+                        // Top line closer to accommodate x-height (lowercase & ascenders)
+                        let topOffset = baseFontSize * 0.75
+                        
+                        // Bottom line pushed further down to safely clear descenders
+                        let bottomOffset = baseFontSize * 0.95
+                        
+                        ZStack {
                             Rectangle()
                                 .fill(textColor.opacity(0.3))
                                 .frame(width: 1.5, height: lineLength)
-                            Spacer()
-                                .frame(height: lineSpacing * 2 + baseFontSize * 0.8)
+                                .position(x: anchorX, y: centerY - topOffset)
+                                
                             Rectangle()
                                 .fill(textColor.opacity(0.3))
                                 .frame(width: 1.5, height: lineLength)
+                                .position(x: anchorX, y: centerY + bottomOffset)
                         }
-                        .position(x: anchorX, y: centerY)
                     }
                 }
             }
@@ -73,7 +81,7 @@ struct WordDisplayView: View {
     private var wordContent: some View {
         HStack(spacing: 0) {
             ForEach(Array(word.enumerated()), id: \.offset) { index, character in
-                let isORP = (index == 1 || (word.count == 1 && index == 0))
+                let isORP = (index == FontMetricsCache.orpIndex(for: word))
                 Text(String(character))
                     .font(.custom(fontName, size: fontSize))
                     .foregroundColor(isORP ? highlightColor : textColor)
@@ -104,8 +112,8 @@ struct WordDisplayView: View {
     /// Calculate X position so that the second letter (ORP) is slightly left of center
     private func calculateXPosition(in geometry: GeometryProxy) -> CGFloat {
         // Anchor point is offset left of center for better visual balance
-        let anchorX = geometry.size.width * 0.38
-        
+        let anchorX = geometry.size.width * 0.325
+
         guard word.count > 1 else {
             return anchorX
         }
@@ -116,23 +124,9 @@ struct WordDisplayView: View {
         return anchorX - offset + (wordWidth / 2)
     }
     
-    /// Calculates distance from start of word to center of ORP (2nd char)
+    /// Calculates distance from start of word to center of ORP character
     func calculateORPOffset() -> CGFloat {
-        let font = UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)
-        
-        if word.count <= 1 {
-            return word.size(withFont: font).width / 2
-        }
-        
-        // Width of first char
-        let firstChar = String(word.prefix(1))
-        let firstCharWidth = firstChar.size(withFont: font).width
-        
-        // Width of second char
-        let secondChar = String(word.dropFirst().prefix(1))
-        let secondCharWidth = secondChar.size(withFont: font).width
-        
-        return firstCharWidth + (secondCharWidth / 2)
+        return FontMetricsCache.shared.orpOffset(for: word, fontName: fontName, fontSize: fontSize)
     }
     
     /// Dynamic font size based on word length

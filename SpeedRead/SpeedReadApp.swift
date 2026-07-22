@@ -9,6 +9,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct AxiloApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,11 @@ struct AxiloApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     LibraryManager.shared.processSharedInbox()
                 }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                LibraryManager.shared.forceSave()
+            }
         }
     }
 }

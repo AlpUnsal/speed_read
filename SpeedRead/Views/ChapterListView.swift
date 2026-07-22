@@ -5,6 +5,7 @@ struct ChapterListView: View {
     enum Tab {
         case sections
         case figures
+        case history
     }
     
     @ObservedObject var viewModel: RSVPViewModel
@@ -24,6 +25,9 @@ struct ChapterListView: View {
                     Picker("View", selection: $selectedTab) {
                         Text("Sections").tag(Tab.sections)
                         Text("Figures").tag(Tab.figures)
+                        if !viewModel.positionHistory.isEmpty {
+                            Text("History").tag(Tab.history)
+                        }
                     }
                     .pickerStyle(SegmentedPickerStyle())
                     .padding(.horizontal)
@@ -73,7 +77,7 @@ struct ChapterListView: View {
                                 }
                             }
                         }
-                    } else {
+                    } else if selectedTab == .figures {
                         // Figures Tab
                         if viewModel.figureAnnotations.isEmpty {
                             Spacer()
@@ -104,10 +108,42 @@ struct ChapterListView: View {
                                 .padding(.vertical, 8)
                             }
                         }
+                    } else {
+                        // History Tab — recent positions the user can jump back to
+                        if viewModel.positionHistory.isEmpty {
+                            Spacer()
+                            VStack(spacing: 12) {
+                                Text("No history yet")
+                                    .font(.custom("EBGaramond-Regular", size: 16))
+                                    .foregroundColor(secondaryTextColor)
+                            }
+                            Spacer()
+                        } else {
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(Array(viewModel.positionHistory.enumerated()), id: \.element.id) { index, snapshot in
+                                        HistoryRow(
+                                            snapshot: snapshot,
+                                            onTap: {
+                                                viewModel.markDepartureForNextJump(viewModel.currentIndex)
+                                                viewModel.goToIndex(snapshot.wordIndex)
+                                                isPresented = false
+                                            }
+                                        )
+
+                                        if index < viewModel.positionHistory.count - 1 {
+                                            Divider()
+                                                .background(dividerColor)
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                        }
                     }
                 }
             }
-            .navigationTitle(selectedTab == .sections ? "Sections" : "Figures")
+            .navigationTitle(selectedTab == .sections ? "Sections" : (selectedTab == .figures ? "Figures" : "History"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -378,6 +414,98 @@ private struct FigureRow: View {
         }
     }
     
+    private var tertiaryTextColor: Color {
+        switch settings.theme {
+        case .cream, .white: return Color(hex: "888888")
+        default: return Color(hex: "666666")
+        }
+    }
+}
+
+// MARK: - History Row
+
+private struct HistoryRow: View {
+    let snapshot: PositionSnapshot
+    let onTap: () -> Void
+
+    @ObservedObject private var settings = SettingsManager.shared
+
+    private var relativeTime: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: snapshot.date, relativeTo: Date())
+    }
+
+    private var kindIcon: String {
+        snapshot.kind == .jumpDeparture ? "arrow.uturn.backward" : "bookmark"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(iconBackgroundColor)
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: kindIcon)
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundColor(secondaryTextColor)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        if let label = snapshot.sectionLabel {
+                            Text(label)
+                                .font(.custom("EBGaramond-Regular", size: 15))
+                                .foregroundColor(settings.textColor)
+                        }
+                        Text(relativeTime)
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(secondaryTextColor)
+                    }
+
+                    if !snapshot.snippet.isEmpty {
+                        Text("\u{201C}\(snapshot.snippet)\u{2026}\u{201D}")
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(secondaryTextColor)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(tertiaryTextColor)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(Color.clear)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private var iconBackgroundColor: Color {
+        switch settings.theme {
+        case .cream: return Color(hex: "EAE8BD")
+        case .white: return Color(hex: "E0E0E0")
+        case .sage: return Color(hex: "A9D0B3")
+        case .iceBlue: return Color(hex: "7AC0CD")
+        case .cherry: return Color(hex: "E2908F")
+        case .lilac: return Color(hex: "C69CC6")
+        default: return Color(hex: "2A2A2A")
+        }
+    }
+
+    private var secondaryTextColor: Color {
+        switch settings.theme {
+        case .cream, .white: return Color(hex: "444444")
+        default: return Color(hex: "AAAAAA")
+        }
+    }
+
     private var tertiaryTextColor: Color {
         switch settings.theme {
         case .cream, .white: return Color(hex: "888888")

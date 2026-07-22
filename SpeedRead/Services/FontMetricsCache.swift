@@ -52,23 +52,53 @@ class FontMetricsCache {
         return width
     }
     
+    // MARK: - Leading Punctuation Detection
+
+    /// Characters that should be skipped when determining the ORP index.
+    private static let leadingPunctuationSet: Set<Character> = [
+        "\"", "'",          // ASCII straight quotes
+        "\u{201C}",         // " LEFT DOUBLE QUOTATION MARK
+        "\u{2018}",         // ' LEFT SINGLE QUOTATION MARK
+        "\u{201E}",         // „ DOUBLE LOW-9 QUOTATION MARK
+        "\u{201A}",         // ‚ SINGLE LOW-9 QUOTATION MARK
+        "\u{00AB}",         // « LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+        "\u{2039}",         // ‹ SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+    ]
+
+    /// Returns the character index that should be highlighted as the ORP.
+    /// Normally index 1 (2nd character). When the word starts with a
+    /// quotation mark, returns index 2 (3rd character) so the highlight
+    /// falls on the first real letter of the word.
+    static func orpIndex(for word: String) -> Int {
+        guard word.count > 1 else { return 0 }
+        if let first = word.first, leadingPunctuationSet.contains(first) {
+            return min(2, word.count - 1)
+        }
+        return 1
+    }
+
     // MARK: - ORP Offset Calculation
-    
+
     /// Calculate the ORP (Optimal Recognition Point) offset for a word.
-    /// The ORP is at the center of the second character.
+    /// Returns the distance from the start of the word to the center of the ORP character.
     func orpOffset(for word: String, fontName: String, fontSize: CGFloat) -> CGFloat {
         guard word.count > 1 else {
             let font = self.font(name: fontName, size: fontSize)
             return word.size(withFont: font).width / 2
         }
-        
-        let firstChar = String(word.prefix(1))
-        let secondChar = String(word.dropFirst().prefix(1))
-        
-        let firstCharWidth = charWidth(firstChar, fontName: fontName, fontSize: fontSize)
-        let secondCharWidth = charWidth(secondChar, fontName: fontName, fontSize: fontSize)
-        
-        return firstCharWidth + (secondCharWidth / 2)
+
+        let targetIndex = FontMetricsCache.orpIndex(for: word)
+        var offset: CGFloat = 0
+        for (i, char) in word.enumerated() {
+            let w = charWidth(String(char), fontName: fontName, fontSize: fontSize)
+            if i < targetIndex {
+                offset += w
+            } else {
+                offset += w / 2
+                break
+            }
+        }
+        return offset
     }
     
     // MARK: - Batch Operations (for performance with large documents)
@@ -77,20 +107,24 @@ class FontMetricsCache {
     /// More efficient than calling orpOffset() repeatedly due to reduced lock contention.
     func orpOffsets(for words: [String], fontName: String, fontSize: CGFloat) -> [CGFloat] {
         let font = self.font(name: fontName, size: fontSize)
-        
+
         return words.map { word in
             guard word.count > 1 else {
                 return word.size(withFont: font).width / 2
             }
-            
-            let firstChar = String(word.prefix(1))
-            let secondChar = String(word.dropFirst().prefix(1))
-            
-            // Use cached char widths
-            let firstCharWidth = charWidth(firstChar, fontName: fontName, fontSize: fontSize)
-            let secondCharWidth = charWidth(secondChar, fontName: fontName, fontSize: fontSize)
-            
-            return firstCharWidth + (secondCharWidth / 2)
+
+            let targetIndex = FontMetricsCache.orpIndex(for: word)
+            var offset: CGFloat = 0
+            for (i, char) in word.enumerated() {
+                let w = charWidth(String(char), fontName: fontName, fontSize: fontSize)
+                if i < targetIndex {
+                    offset += w
+                } else {
+                    offset += w / 2
+                    break
+                }
+            }
+            return offset
         }
     }
     

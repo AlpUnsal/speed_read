@@ -32,6 +32,9 @@ struct PDFParsingService {
         }
         
         var fullText = ""
+        // Per-page text collected during the loop; pages are joined afterwards
+        // so a paragraph spilling across a page boundary isn't force-split.
+        var pageTextEntries: [(pageIndex: Int, text: String, endsParagraph: Bool)] = []
         var totalWordCount = 0
         var detectedSections: [InternalSection] = []
         
@@ -69,6 +72,12 @@ struct PDFParsingService {
                 
                 var pageHeadings: [InternalSection] = []
                 var localWords: [String] = []
+                // Paragraph-aware text assembly
+                var localTextSegments: [String] = []  // Each segment is a line's words; "\n" entries mark paragraph breaks
+                var localWordCount: Int = 0
+                var previousLineMinY: CGFloat? = nil  // Previous line's bottom (PDF coords: Y up)
+                var lineHeightSum: CGFloat = 0
+                var lineHeightSamples: Int = 0
                 
                 guard let attributedString = page.attributedString else { return }
                 let pageText = attributedString.string
@@ -264,29 +273,72 @@ struct PDFParsingService {
                              pageHeadings.append(InternalSection(
                                 title: cleanLine,
                                 pageIndex: i,
-                                wordOffsetOnPage: localWords.count,
+                                wordOffsetOnPage: localWordCount,
                                 isFromOutline: false
                              ))
                          }
                     }
-                    
+
                     // 4. Process Words for RSVP
                     let cleanedLine = PDFParsingService.removeCitations(from: line)
                     let words = cleanedLine.components(separatedBy: .whitespacesAndNewlines)
-                    
+
+                    var lineWords: [String] = []
                     for word in words {
                         let trimmed = word.trimmingCharacters(in: .punctuationCharacters)
-                        if !trimmed.isEmpty && word.rangeOfCharacter(from: .decimalDigits) == nil {
+                        if !trimmed.isEmpty {
                             localWords.append(word)
+                            lineWords.append(word)
                         }
                     }
+
+                    // Track paragraph breaks via vertical gaps between lines
+                    // (reuses `bounds` already declared for this line above)
+                    if bounds != .zero {
+                        let lineHeight = bounds.height
+                        if lineHeight > 0 {
+                            lineHeightSum += lineHeight
+                            lineHeightSamples += 1
+                        }
+
+                        if let prevMinY = previousLineMinY {
+                            let avgLineHeight = lineHeightSamples > 0 ? lineHeightSum / CGFloat(lineHeightSamples) : lineHeight
+                            // PDF coords: Y increases upward. Gap between lines = previous bottom - current top
+                            let gap = prevMinY - bounds.maxY
+                            let threshold = max(avgLineHeight * 0.8, 6.0)
+                            if gap > threshold && !localTextSegments.isEmpty {
+                                localTextSegments.append("\n\n")
+                            }
+                        }
+                        previousLineMinY = bounds.minY
+                    }
+
+                    if !lineWords.isEmpty {
+                        localTextSegments.append(lineWords.joined(separator: " "))
+                        localWordCount += lineWords.count
+                    }
                 }
-                
+
                 detectedSections.append(contentsOf: pageHeadings)
-                
-                // OPTIMIZATION: Build string directly to avoid huge array overhead
-                if !localWords.isEmpty {
-                    fullText += localWords.joined(separator: " ") + " "
+
+                // Build text preserving paragraph breaks
+                if localWordCount > 0 {
+                    var pageText2 = localTextSegments.joined(separator: " ")
+                    // Clean up spaces around paragraph break markers
+                    pageText2 = pageText2.replacingOccurrences(of: " \n\n ", with: "\n\n")
+                    pageText2 = pageText2.replacingOccurrences(of: " \n\n", with: "\n\n")
+                    pageText2 = pageText2.replacingOccurrences(of: "\n\n ", with: "\n\n")
+                    // The page ends a paragraph when its last word closes a
+                    // sentence or a paragraph gap was already detected there.
+                    let lastWord = pageText2
+                        .components(separatedBy: .whitespacesAndNewlines)
+                        .last(where: { !$0.isEmpty }) ?? ""
+                    pageTextEntries.append((
+                        pageIndex: i,
+                        text: pageText2,
+                        endsParagraph: TextTokenizer.endsSentence(lastWord)
+                            || pageText2.hasSuffix("\n\n")
+                    ))
                 }
                 
                 // --- FIGURE DETECTION ---
@@ -337,8 +389,8 @@ struct PDFParsingService {
                 }
                 // --- END FIGURE DETECTION ---
                 
-                totalWordCount += localWords.count
-                currentWordCount += localWords.count
+                totalWordCount += localWordCount
+                currentWordCount += localWordCount
                 
                 // 4. Refine Outline Sections (Fix 0-offset bug with STRICT matching)
                 if isUsingOutline {
@@ -372,9 +424,10 @@ struct PDFParsingService {
                                         }
                                     }
                                     
-                                    // Advance offset
+                                    // Advance offset (must count words the same
+                                    // way the main text emission does)
                                     let lineWords = cleanLine.components(separatedBy: .whitespacesAndNewlines)
-                                               .filter { !$0.isEmpty && $0.rangeOfCharacter(from: .decimalDigits) == nil }
+                                               .filter { !$0.isEmpty }
                                     currentLocalOffset += lineWords.count
                                 }
                                 
@@ -397,7 +450,7 @@ struct PDFParsingService {
                 // 5. Explicit Abstract Detection (Force insert if missing)
                 // Only check first 2 pages
                 if i < 2 {
-                    let pageString = localWords.joined(separator: " ").lowercased()
+                    let pageString = localTextSegments.joined(separator: " ").lowercased()
                     if pageString.contains("abstract") {
                          // Find strict line for Abstract
                          var abstractOffset: Int? = nil
@@ -411,7 +464,7 @@ struct PDFParsingService {
                                 stop.pointee = true
                             }
                             let lineWords = cleanLine.components(separatedBy: .whitespacesAndNewlines)
-                                           .filter { !$0.isEmpty && $0.rangeOfCharacter(from: .decimalDigits) == nil }
+                                           .filter { !$0.isEmpty }
                             currentLocalOffset += lineWords.count
                          }
                          
@@ -433,7 +486,27 @@ struct PDFParsingService {
         }
         
         // logger.info("PDF Loop Finished. Total Words: \(totalWordCount) | Sections: \(detectedSections.count)")
-        
+
+        // Join page texts: break between pages only when the earlier page
+        // ended a paragraph or the next page opens with a heading — otherwise
+        // the paragraph flows across the page boundary instead of being
+        // force-split mid-sentence.
+        for (k, entry) in pageTextEntries.enumerated() {
+            fullText += entry.text
+            if k < pageTextEntries.count - 1 {
+                let nextPage = pageTextEntries[k + 1].pageIndex
+                // Sections still at offset 0 include unrefined outline entries;
+                // treating those as page-top headings keeps the old (break)
+                // behavior for them — conservative.
+                let nextStartsWithHeading = detectedSections.contains {
+                    $0.pageIndex == nextPage && $0.wordOffsetOnPage == 0
+                }
+                fullText += (entry.endsParagraph || nextStartsWithHeading) ? "\n\n" : " "
+            } else {
+                fullText += "\n\n"
+            }
+        }
+
         // Map sections to NavigationPoints
         var finalNavigationPoints: [NavigationPoint] = []
         

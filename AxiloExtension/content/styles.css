@@ -47,6 +47,54 @@
   --axilo-modal-border: rgba(0,0,0,0.08);
 }
 
+/* Sage */
+.axilo-theme-sage {
+  --axilo-bg: #E8F0E8;
+  --axilo-text-main: #758B7D; /* Even lighter, softer green-grey */
+  --axilo-text-dim: #95A89B; /* Very light muted green-grey */
+  --axilo-icon-color: #95A89B;
+  --axilo-track-bg: #D1E2D4;
+  --axilo-modal-bg: #F2F7F2;
+  --axilo-modal-border: rgba(0,0,0,0.08);
+  --axilo-red: #1A4D2E; /* Very dark, deep green for ORP */
+}
+
+/* Ice Blue */
+.axilo-theme-iceBlue {
+  --axilo-bg: #E3EDF2;
+  --axilo-text-main: #6A8294; /* Even lighter, softer blue-grey */
+  --axilo-text-dim: #8E9FA8; /* Very light muted blue-grey */
+  --axilo-icon-color: #8E9FA8;
+  --axilo-track-bg: #CFE2EA;
+  --axilo-modal-bg: #EEF4F7;
+  --axilo-modal-border: rgba(0,0,0,0.08);
+  --axilo-red: #134B6E; /* Very dark, deep blue for ORP */
+}
+
+/* Cherry */
+.axilo-theme-cherry {
+  --axilo-bg: #F9EBED;
+  --axilo-text-main: #9E747A; /* Even lighter, softer red-grey */
+  --axilo-text-dim: #BFA0A4; /* Very light muted red-grey */
+  --axilo-icon-color: #BFA0A4;
+  --axilo-track-bg: #EDDDE0;
+  --axilo-modal-bg: #FDF4F5;
+  --axilo-modal-border: rgba(0,0,0,0.08);
+  --axilo-red: #8A2533; /* Very dark, deep red for ORP */
+}
+
+/* Lilac */
+.axilo-theme-lilac {
+  --axilo-bg: #F2EBFA;
+  --axilo-text-main: #816B99; /* Even lighter, softer purple-grey */
+  --axilo-text-dim: #A391B5; /* Very light muted purple-grey */
+  --axilo-icon-color: #A391B5;
+  --axilo-track-bg: #E1D8EA;
+  --axilo-modal-bg: #F7F4FA;
+  --axilo-modal-border: rgba(0,0,0,0.08);
+  --axilo-red: #4E1D7B; /* Very dark, deep purple for ORP */
+}
+
 /* === Full-Screen Overlay === */
 .axilo-overlay {
   position: fixed;
@@ -161,10 +209,12 @@
   z-index: 7;
 }
 .axilo-focus-line.top {
-  bottom: calc(50% + 40px);
+  /* Closer to text: previously 40px, decreased to accommodate x-height */
+  bottom: calc(50% + 32px);
 }
 .axilo-focus-line.bottom {
-  top: calc(50% + 40px);
+  /* Further from text: previously 40px, increased to clear descenders safely, slightly adjusted up */
+  top: calc(50% + 48px);
 }
 .axilo-focus-lines .axilo-focus-line {
   opacity: 0.3;

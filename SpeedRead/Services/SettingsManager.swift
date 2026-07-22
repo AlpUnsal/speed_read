@@ -21,11 +21,30 @@ enum AppTheme: String, CaseIterable, Identifiable {
     }
 }
 
-enum ReaderMode: String, CaseIterable, Identifiable {
+enum ReaderMode: String, CaseIterable, Identifiable, Codable {
     case rsvp = "Speed"
-    case paragraph = "Scroll"
-    
+    case reading = "Reading"
+
     var id: String { rawValue }
+}
+
+enum SmartPacingIntensity: String, CaseIterable, Identifiable {
+    case subtle = "Subtle"
+    case normal = "Normal"
+    case strong = "Strong"
+
+    var id: String { rawValue }
+
+    /// Scales the smart-pacing extras (rarity + length pauses). Tuned so
+    /// normal is the comprehension sweet spot for names/new words; subtle
+    /// is for readers who find that too rhythmic.
+    var multiplier: Double {
+        switch self {
+        case .subtle: return 1.0
+        case .normal: return 1.5
+        case .strong: return 1.8
+        }
+    }
 }
 
 class SettingsManager: ObservableObject {
@@ -36,6 +55,9 @@ class SettingsManager: ObservableObject {
     @AppStorage("fontName") var fontName: String = "EBGaramond-Regular"
     @AppStorage("fontSizeMultiplier") var fontSizeMultiplier: Double = 1.0
     @AppStorage("showORPEmphasisLines") var showORPEmphasisLines: Bool = false
+    @AppStorage("showDialogueIndicator") var showDialogueIndicator: Bool = false
+    @AppStorage("smartPacing") var smartPacing: Bool = true
+    @AppStorage("smartPacingIntensity") var smartPacingIntensity: SmartPacingIntensity = .normal
     
     // Available fonts - strictly curating to high quality reading fonts
     let availableFonts = [
@@ -48,9 +70,24 @@ class SettingsManager: ObservableObject {
     ]
     
     private init() {
+        Self.migrateLegacyDefaults()
+
         // Clamp font size if it exceeds new max
         if fontSizeMultiplier > 1.25 {
             fontSizeMultiplier = 1.25
+        }
+    }
+
+    /// v1.x stored the theme under "appTheme" and had a "Scroll" reader mode.
+    /// Carry both forward so updating doesn't silently reset user choices.
+    private static func migrateLegacyDefaults() {
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: "theme") == nil,
+           let legacyTheme = defaults.string(forKey: "appTheme") {
+            defaults.set(legacyTheme, forKey: "theme")
+        }
+        if defaults.string(forKey: "readerMode") == "Scroll" {
+            defaults.set(ReaderMode.reading.rawValue, forKey: "readerMode")
         }
     }
     
@@ -219,7 +256,7 @@ class SettingsManager: ObservableObject {
         case .cherry:
             return Color(hex: "F4E4E6")
         case .lilac:
-            return Color(hex: "EBEOFO")
+            return Color(hex: "EBE0F0")
         }
     }
     

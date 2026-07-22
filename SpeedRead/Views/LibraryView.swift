@@ -1,26 +1,36 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+#if !APPEXTENSION
+extension UTType {
+    static let documentFolder = UTType(exportedAs: "com.alpunsal.axilo.documentFolder")
+}
+
+extension DocumentFolder: Transferable {
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .documentFolder)
+    }
+}
+#endif
 
 struct LibraryView: View {
     @ObservedObject var libraryManager = LibraryManager.shared
     @ObservedObject var settings = SettingsManager.shared
+    @ObservedObject var deviceScanner = DeviceBookScanner.shared
     @Binding var selectedDocument: ReadingDocument?
     @Binding var isPresented: Bool
     @Binding var isReading: Bool
-    
+
     @State private var documentToRename: ReadingDocument?
     @State private var newDocumentName: String = ""
     @State private var documentForFolderSelection: ReadingDocument?
-    
+    @State private var importingBookId: String? = nil
+    @State private var isImportingAll = false
+
     // Add folder states
     @State private var showCreateFolder = false
     @State private var newFolderName: String = ""
     @State private var presentedFolderItem: SelectedFolderItem?
-    
-    // Auto-scroll state (for drag-to-edge folder traversal)
-    @State private var autoScrollTimer: Timer? = nil
-    @State private var autoScrollInterval: TimeInterval = 0.45
-    @State private var autoScrollDirection: Int = 0  // -1 = left, 0 = stopped, 1 = right
-    @State private var autoScrollIndex: Int = 0
     
     // Virtual folder enumerator
     enum SelectedFolderItem: Identifiable {
@@ -50,9 +60,7 @@ struct LibraryView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("Library")
-                        .font(.custom("EBGaramond-Regular", size: 28))
-                        .foregroundColor(settings.textColor)
+                    ORPStyledTitle(text: "Library")
                     
                     Spacer()
                     
@@ -68,46 +76,74 @@ struct LibraryView: View {
                 .padding(.top, 24)
                 .padding(.bottom, 20)
                 
-                foldersSection
-                
-                if libraryManager.documents.isEmpty && libraryManager.folders.isEmpty {
+                if libraryManager.folders.isEmpty && !deviceScanner.hasFolderAccess {
                     Spacer()
                     emptyState
                     Spacer()
-                } else if !libraryManager.documents.isEmpty {
-                    documentList
                 } else {
-                    Spacer()
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 20) {
+                            // "On Your Device" section
+                            deviceBooksSection
+
+                            // Folders grid
+                            if !libraryManager.folders.isEmpty {
+                                foldersGrid
+                            }
+                        }
+                        .padding(.bottom, 100)
+                    }
                 }
             }
+            
+            // Custom Overlays for Popups (must be inside ZStack)
+            if documentToRename != nil {
+                CustomAlertView(
+                    title: "Rename Document",
+                    text: $newDocumentName,
+                    placeholder: "Document name",
+                    saveTitle: "Save",
+                    onCancel: {
+                        withAnimation {
+                            documentToRename = nil
+                        }
+                    },
+                    onSave: {
+                        if let doc = documentToRename, !newDocumentName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            libraryManager.renameDocument(id: doc.id, newName: newDocumentName.trimmingCharacters(in: .whitespaces))
+                        }
+                        withAnimation {
+                            documentToRename = nil
+                        }
+                    }
+                )
+            }
+            
+            if showCreateFolder {
+                CustomAlertView(
+                    title: "New Folder",
+                    text: $newFolderName,
+                    placeholder: "Folder name",
+                    saveTitle: "Create",
+                    onCancel: {
+                        withAnimation {
+                            showCreateFolder = false
+                            newFolderName = ""
+                        }
+                    },
+                    onSave: {
+                        if !newFolderName.trimmingCharacters(in: .whitespaces).isEmpty {
+                            libraryManager.createFolder(name: newFolderName.trimmingCharacters(in: .whitespaces))
+                        }
+                        withAnimation {
+                            showCreateFolder = false
+                            newFolderName = ""
+                        }
+                    }
+                )
+            }
         }
-        .alert("Rename Document", isPresented: Binding(
-            get: { documentToRename != nil },
-            set: { if !$0 { documentToRename = nil } }
-        )) {
-            TextField("Name", text: $newDocumentName)
-            Button("Cancel", role: .cancel) {
-                documentToRename = nil
-            }
-            Button("Save") {
-                if let doc = documentToRename, !newDocumentName.isEmpty {
-                    libraryManager.renameDocument(id: doc.id, newName: newDocumentName)
-                }
-                newFolderName = ""
-            }
-        }
-        .alert("New Folder", isPresented: $showCreateFolder) {
-            TextField("Name", text: $newFolderName)
-            Button("Cancel", role: .cancel) {
-                newFolderName = ""
-            }
-            Button("Create") {
-                if !newFolderName.isEmpty {
-                    libraryManager.createFolder(name: newFolderName)
-                }
-                newFolderName = ""
-            }
-        }
+        // Sheets and FullScreenCovers
         .sheet(item: Binding<FolderSelectionItem?>(
             get: { documentForFolderSelection.map { FolderSelectionItem(document: $0) } },
             set: { documentForFolderSelection = $0?.document }
@@ -122,190 +158,258 @@ struct LibraryView: View {
                     documentForFolderSelection = nil
                 }
             )
+            .presentationDragIndicator(.visible)
+            .presentationBackground(settings.backgroundColor)
         }
-        .fullScreenCover(item: $presentedFolderItem) { item in
+        .sheet(item: $presentedFolderItem) { item in
             FolderDetailView(
                 folder: item.folder,
                 selectedDocument: $selectedDocument,
                 isReading: $isReading
             )
+            .presentationDragIndicator(.visible)
+            .presentationBackground(settings.backgroundColor)
         }
     }
     
     // MARK: - Folders Section
 
-    /// Ordered list of folder IDs used for programmatic scrolling (Read Later first).
-    private var orderedFolderIDs: [UUID] {
-        let readLater = libraryManager.folders.filter { $0.name == "Read Later" }
-        let others = libraryManager.folders.filter { $0.name != "Read Later" }
-        return (readLater + others).map { $0.id }
-    }
+    private let folderColumns = [
+        GridItem(.flexible(), spacing: 16),
+        GridItem(.flexible(), spacing: 16)
+    ]
 
-    private func startAutoScroll(direction: Int, proxy: ScrollViewProxy) {
-        guard autoScrollDirection != direction else { return }
-        stopAutoScroll()
-        autoScrollDirection = direction
-        autoScrollInterval = 0.45  // always reset speed at the start
+    private var foldersGrid: some View {
+        LazyVGrid(columns: folderColumns, spacing: 20) {
+            // 0. "All Books"
+            VirtualFolderCard(
+                name: "All Books",
+                icon: "books.vertical",
+                documents: libraryManager.documents,
+                onDrop: nil
+            ) {
+                presentedFolderItem = .library
+            }
 
-        func scheduleNext() {
-            autoScrollTimer = Timer.scheduledTimer(withTimeInterval: autoScrollInterval, repeats: false) { _ in
-                let ids = orderedFolderIDs
-                guard !ids.isEmpty else { return }
-                autoScrollIndex = max(0, min(ids.count - 1, autoScrollIndex + direction))
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    proxy.scrollTo(ids[autoScrollIndex], anchor: .center)
+            // 1. "Read Later"
+            if let readLater = libraryManager.folders.first(where: { $0.name == "Read Later" }) {
+                FolderCard(folder: readLater) {
+                    presentedFolderItem = .real(readLater)
                 }
-                // Accelerate: shorten interval each tick, floor at 0.08s
-                autoScrollInterval = max(0.08, autoScrollInterval * 0.85)
-                if autoScrollDirection != 0 { scheduleNext() }
+            } else {
+                VirtualFolderCard(
+                    name: "Read Later",
+                    icon: "bookmark",
+                    documents: [],
+                    onDrop: { doc in
+                        let folder = libraryManager.createFolder(name: "Read Later")
+                        libraryManager.assignDocument(id: doc.id, to: folder.id)
+                    }
+                ) {
+                    let newFolder = libraryManager.createFolder(name: "Read Later")
+                    presentedFolderItem = .real(newFolder)
+                }
+            }
+
+            // 2. User Folders (draggable for reordering)
+            ForEach(libraryManager.folders.filter { $0.name != "Read Later" }) { folder in
+                folderCard(for: folder)
             }
         }
-        scheduleNext()
+        .padding(.horizontal, 24)
     }
-
-    private func stopAutoScroll() {
-        autoScrollTimer?.invalidate()
-        autoScrollTimer = nil
-        autoScrollDirection = 0
-    }
-
-    private var foldersSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Folders")
-                    .font(.custom("EBGaramond-Regular", size: 18))
-                    .foregroundColor(settings.secondaryTextColor)
-                
-                Spacer()
+    
+    @ViewBuilder
+    private func folderCard(for folder: DocumentFolder) -> some View {
+        #if !APPEXTENSION
+        FolderCard(folder: folder, onFolderDrop: { droppedFolder in
+            guard droppedFolder.id != folder.id else { return }
+            withAnimation {
+                libraryManager.reorderFolder(droppedFolder.id, before: folder.id)
             }
+        }) {
+            presentedFolderItem = .real(folder)
+        }
+        .draggable(folder)
+        #else
+        FolderCard(folder: folder) {
+            presentedFolderItem = .real(folder)
+        }
+        #endif
+    }
+
+    // MARK: - Device Books Section
+
+    @ViewBuilder
+    private var deviceBooksSection: some View {
+        if !deviceScanner.hasFolderAccess {
+            // CTA banner — invite user to link a folder
+            Button {
+                NotificationCenter.default.post(name: NSNotification.Name("ShowFolderPicker"), object: nil)
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundColor(settings.accentColor)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Find books on your device")
+                            .font(.custom("EBGaramond-Regular", size: 17))
+                            .foregroundColor(settings.textColor)
+                        Text("Select the folder where your books are stored")
+                            .font(.custom("EBGaramond-Regular", size: 13))
+                            .foregroundColor(settings.mutedTextColor)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundColor(settings.mutedTextColor)
+                }
+                .padding(16)
+                .background(settings.cardBackgroundColor)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(settings.accentColor.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .buttonStyle(PlainButtonStyle())
             .padding(.horizontal, 24)
+        } else if deviceScanner.isScanning {
+            HStack(spacing: 12) {
+                ProgressView()
+                    .tint(settings.accentColor)
+                Text("Scanning for books...")
+                    .font(.custom("EBGaramond-Regular", size: 15))
+                    .foregroundColor(settings.secondaryTextColor)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .background(settings.cardBackgroundColor)
+            .cornerRadius(12)
+            .padding(.horizontal, 24)
+        } else if deviceScanner.discoveredBooks.isEmpty && deviceScanner.hasScannedOnce {
+            // No books found — offer to change folder
+            VStack(spacing: 12) {
+                Text("No new books found")
+                    .font(.custom("EBGaramond-Regular", size: 16))
+                    .foregroundColor(settings.secondaryTextColor)
 
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        // 1. "Read Later"
-                        if let readLater = libraryManager.folders.first(where: { $0.name == "Read Later" }) {
-                            FolderCard(folder: readLater) {
-                                presentedFolderItem = .real(readLater)
-                            }
-                            .id(readLater.id)
-                        } else {
-                            VirtualFolderCard(
-                                name: "Read Later",
-                                icon: "bookmark",
-                                documents: [],
-                                onDrop: { doc in
-                                    let folder = libraryManager.createFolder(name: "Read Later")
-                                    libraryManager.assignDocument(id: doc.id, to: folder.id)
-                                }
-                            ) {
-                                let newFolder = libraryManager.createFolder(name: "Read Later")
-                                presentedFolderItem = .real(newFolder)
-                            }
+                if let name = deviceScanner.folderName {
+                    Text("in \"\(name)\"")
+                        .font(.custom("EBGaramond-Regular", size: 14))
+                        .foregroundColor(settings.mutedTextColor)
+                }
+
+                Button {
+                    NotificationCenter.default.post(name: NSNotification.Name("ShowFolderPicker"), object: nil)
+                } label: {
+                    Text("Try a different folder")
+                        .font(.custom("EBGaramond-Regular", size: 15))
+                        .foregroundColor(settings.accentColor)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(settings.accentColor.opacity(0.1))
+                        .cornerRadius(8)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(16)
+            .background(settings.cardBackgroundColor)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(settings.cardBorderColor.opacity(0.3), lineWidth: 0.5)
+            )
+            .padding(.horizontal, 24)
+        } else if !deviceScanner.discoveredBooks.isEmpty {
+            // Discovered books list
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("On Your Device")
+                        .font(.custom("EBGaramond-Regular", size: 18))
+                        .foregroundColor(settings.textColor)
+
+                    Spacer()
+
+                    if deviceScanner.discoveredBooks.count > 1 && !isImportingAll {
+                        Button {
+                            importAllBooks()
+                        } label: {
+                            Text("Import All")
+                                .font(.custom("EBGaramond-Regular", size: 14))
+                                .foregroundColor(settings.accentColor)
                         }
+                    }
 
-                        // 2. User Folders
-                        ForEach(libraryManager.folders.filter { $0.name != "Read Later" }) { folder in
-                            FolderCard(folder: folder) {
-                                presentedFolderItem = .real(folder)
-                            }
-                            .id(folder.id)
+                    if isImportingAll {
+                        ProgressView()
+                            .tint(settings.accentColor)
+                            .scaleEffect(0.8)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(deviceScanner.discoveredBooks) { book in
+                            DiscoveredBookCard(
+                                book: book,
+                                isImporting: importingBookId == book.id,
+                                onImport: { importBook(book) }
+                            )
                         }
                     }
                     .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
-                }
-                // Left edge zone: drag here → scroll left
-                .overlay(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 56)
-                        .contentShape(Rectangle())
-                        .dropDestination(for: ReadingDocument.self) { _, _ in false } isTargeted: { over in
-                            if over {
-                                startAutoScroll(direction: -1, proxy: proxy)
-                            } else if autoScrollDirection == -1 {
-                                stopAutoScroll()
-                            }
-                        }
-                }
-                // Right edge zone: drag here → scroll right
-                .overlay(alignment: .trailing) {
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 56)
-                        .contentShape(Rectangle())
-                        .dropDestination(for: ReadingDocument.self) { _, _ in false } isTargeted: { over in
-                            if over {
-                                startAutoScroll(direction: 1, proxy: proxy)
-                            } else if autoScrollDirection == 1 {
-                                stopAutoScroll()
-                            }
-                        }
                 }
             }
         }
     }
-    
+
+    private func importBook(_ book: DiscoveredBook) {
+        importingBookId = book.id
+        Task {
+            let doc = await deviceScanner.importBook(book)
+            await MainActor.run {
+                importingBookId = nil
+                if let doc {
+                    selectedDocument = doc
+                }
+            }
+        }
+    }
+
+    private func importAllBooks() {
+        isImportingAll = true
+        let books = deviceScanner.discoveredBooks
+        Task {
+            for book in books {
+                _ = await deviceScanner.importBook(book)
+            }
+            await MainActor.run {
+                isImportingAll = false
+            }
+        }
+    }
+
     // MARK: - Empty State
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "books.vertical")
+            Image(systemName: "folder")
                 .font(.system(size: 48, weight: .ultraLight))
                 .foregroundColor(settings.mutedTextColor)
-            Text("No documents yet")
+            Text("No folders yet")
                 .font(.custom("EBGaramond-Regular", size: 18))
                 .foregroundColor(settings.secondaryTextColor)
-            Text("Import a document to get started")
+            Text("Tap + to create a folder")
                 .font(.custom("EBGaramond-Regular", size: 14))
                 .foregroundColor(settings.mutedTextColor)
         }
     }
     
-    // MARK: - Document List
-    
-    private var documentList: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(libraryManager.documents) { document in
-                    DocumentRow(
-                        document: document,
-                        onContinue: {
-                            selectedDocument = document
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isReading = true
-                            }
-                            isPresented = false
-                        },
-                        onRestart: {
-                            libraryManager.resetProgress(for: document.id)
-                            if var doc = libraryManager.getDocument(id: document.id) {
-                                doc.currentWordIndex = 0
-                                selectedDocument = doc
-                            }
-                            isPresented = false
-                        },
-                        onRename: {
-                            newDocumentName = document.name
-                            documentToRename = document
-                        },
-                        onDelete: {
-                            withAnimation {
-                                libraryManager.deleteDocument(document)
-                            }
-                        },
-                        onMoveToFolder: {
-                            documentForFolderSelection = document
-                        }
-                    )
-                    .draggable(document)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
-        }
-    }
 }
 
 // MARK: - Virtual Folder Card
@@ -323,33 +427,38 @@ struct VirtualFolderCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                // 2x2 grid cover
+            VStack(spacing: 8) {
                 ZStack {
+                    // Background
                     RoundedRectangle(cornerRadius: 12)
                         .fill(settings.cardBackgroundColor)
                         .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
                     
-                    if documents.isEmpty {
-                        Image(systemName: icon)
-                            .font(.system(size: 32, weight: .light))
-                            .foregroundColor(settings.mutedTextColor.opacity(0.5))
-                    } else if documents.count < 4 {
-                        DocumentThumbnail(document: documents[0])
+                    Group {
+                        if documents.isEmpty {
+                            Image(systemName: icon)
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundColor(settings.mutedTextColor.opacity(0.5))
+                        } else if documents.count < 4 {
+                            // Single full-size thumbnail for < 4 items
+                            DocumentThumbnail(document: documents[0])
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            // Four quadrant thumbnails
+                            VStack(spacing: 2) {
+                                HStack(spacing: 2) {
+                                    QuadrantThumbnail(document: documents[0])
+                                    QuadrantThumbnail(document: documents[1])
+                                }
+                                HStack(spacing: 2) {
+                                    QuadrantThumbnail(document: documents[2])
+                                    QuadrantThumbnail(document: documents[3])
+                                }
+                            }
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        VStack(spacing: 2) {
-                            HStack(spacing: 2) {
-                                QuadrantThumbnail(document: documents[0])
-                                QuadrantThumbnail(document: documents[1])
-                            }
-                            HStack(spacing: 2) {
-                                QuadrantThumbnail(document: documents[2])
-                                QuadrantThumbnail(document: documents[3])
-                            }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     
                     // Drop highlight overlay
                     if isDropTargeted && onDrop != nil {
@@ -361,7 +470,7 @@ struct VirtualFolderCard: View {
                             )
                     }
                 }
-                .frame(width: 140, height: 140)
+                .aspectRatio(1, contentMode: .fit)
                 .scaleEffect(isDropTargeted && onDrop != nil ? 1.05 : 1.0)
                 .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDropTargeted)
                 
@@ -385,8 +494,9 @@ struct VirtualFolderCard: View {
 // MARK: - Folder Card (Apple Music Style)
 struct FolderCard: View {
     let folder: DocumentFolder
+    var onFolderDrop: ((DocumentFolder) -> Void)? = nil
     let action: () -> Void
-    
+
     @ObservedObject var libraryManager = LibraryManager.shared
     @ObservedObject var settings = SettingsManager.shared
     @State private var isDropTargeted = false
@@ -397,35 +507,38 @@ struct FolderCard: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                // 2x2 grid cover
+            VStack(spacing: 8) {
                 ZStack {
+                    // Background
                     RoundedRectangle(cornerRadius: 12)
                         .fill(settings.cardBackgroundColor)
                         .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
                     
-                    if folderDocuments.isEmpty {
-                        Image(systemName: "folder")
-                            .font(.system(size: 32, weight: .light))
-                            .foregroundColor(settings.mutedTextColor.opacity(0.5))
-                    } else if folderDocuments.count < 4 {
-                        // Single full-size thumbnail for < 4 items
-                        DocumentThumbnail(document: folderDocuments[0])
+                    Group {
+                        if folderDocuments.isEmpty {
+                            Image(systemName: "folder")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundColor(settings.mutedTextColor.opacity(0.5))
+                        } else if folderDocuments.count < 4 {
+                            // Single full-size thumbnail for < 4 items
+                            DocumentThumbnail(document: folderDocuments[0])
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        } else {
+                            // Four quadrant thumbnails
+                            VStack(spacing: 2) {
+                                HStack(spacing: 2) {
+                                    QuadrantThumbnail(document: folderDocuments[0])
+                                    QuadrantThumbnail(document: folderDocuments[1])
+                                }
+                                HStack(spacing: 2) {
+                                    QuadrantThumbnail(document: folderDocuments[2])
+                                    QuadrantThumbnail(document: folderDocuments[3])
+                                }
+                            }
                             .clipShape(RoundedRectangle(cornerRadius: 12))
-                    } else {
-                        // Four quadrant thumbnails
-                        VStack(spacing: 2) {
-                            HStack(spacing: 2) {
-                                QuadrantThumbnail(document: folderDocuments[0])
-                                QuadrantThumbnail(document: folderDocuments[1])
-                            }
-                            HStack(spacing: 2) {
-                                QuadrantThumbnail(document: folderDocuments[2])
-                                QuadrantThumbnail(document: folderDocuments[3])
-                            }
                         }
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     
                     // Drop highlight overlay
                     if isDropTargeted {
@@ -437,7 +550,7 @@ struct FolderCard: View {
                             )
                     }
                 }
-                .frame(width: 140, height: 140)
+                .aspectRatio(1, contentMode: .fit)
                 .scaleEffect(isDropTargeted ? 1.05 : 1.0)
                 .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDropTargeted)
                 
@@ -448,15 +561,43 @@ struct FolderCard: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
+        #if !APPEXTENSION
+        .onDrop(of: [.readingDocument, .documentFolder], isTargeted: $isDropTargeted) { providers in
+            // Folder reorder
+            for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.documentFolder.identifier) {
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.documentFolder.identifier) { data, _ in
+                    guard let data = data,
+                          let dropped = try? JSONDecoder().decode(DocumentFolder.self, from: data),
+                          let handler = onFolderDrop,
+                          dropped.id != folder.id else { return }
+                    DispatchQueue.main.async { handler(dropped) }
+                }
+                return true
+            }
+            // Document assignment
+            for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.readingDocument.identifier) {
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.readingDocument.identifier) { data, _ in
+                    guard let data = data,
+                          let doc = try? JSONDecoder().decode(ReadingDocument.self, from: data),
+                          doc.folderId != folder.id else { return }
+                    DispatchQueue.main.async {
+                        libraryManager.assignDocument(id: doc.id, to: folder.id)
+                    }
+                }
+                return true
+            }
+            return false
+        }
+        #else
         .dropDestination(for: ReadingDocument.self) { droppedItems, _ in
             guard let doc = droppedItems.first else { return false }
-            // Skip if document is already in this folder
             guard doc.folderId != folder.id else { return false }
             libraryManager.assignDocument(id: doc.id, to: folder.id)
             return true
         } isTargeted: { targeted in
             isDropTargeted = targeted
         }
+        #endif
         .contextMenu {
             Button(role: .destructive) {
                 withAnimation {
@@ -483,7 +624,62 @@ struct QuadrantThumbnail: View {
                     .fill(settings.backgroundColor.opacity(0.5))
             }
         }
-        .frame(width: 69, height: 69) // Exactly half of 140 minus spacing
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Discovered Book Card
+
+struct DiscoveredBookCard: View {
+    let book: DiscoveredBook
+    let isImporting: Bool
+    let onImport: () -> Void
+
+    @ObservedObject var settings = SettingsManager.shared
+
+    var body: some View {
+        Button(action: { if !isImporting { onImport() } }) {
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(settings.cardBackgroundColor)
+                        .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
+
+                    VStack(spacing: 6) {
+                        if isImporting {
+                            ProgressView()
+                                .tint(settings.accentColor)
+                        } else {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.system(size: 24, weight: .light))
+                                .foregroundColor(settings.accentColor)
+                        }
+
+                        Text(book.fileTypeBadge)
+                            .font(.custom("EBGaramond-Regular", size: 11))
+                            .foregroundColor(settings.mutedTextColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(settings.mutedTextColor.opacity(0.1))
+                            .cornerRadius(4)
+
+                        Text(book.fileSizeFormatted)
+                            .font(.custom("EBGaramond-Regular", size: 11))
+                            .foregroundColor(settings.mutedTextColor)
+                    }
+                }
+                .frame(width: 100, height: 100)
+
+                Text(book.displayName)
+                    .font(.custom("EBGaramond-Regular", size: 13))
+                    .foregroundColor(settings.textColor)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 100)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .opacity(isImporting ? 0.6 : 1.0)
     }
 }
 

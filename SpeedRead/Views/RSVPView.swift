@@ -5,47 +5,71 @@ struct RSVPView: View {
     let documentId: UUID?
     let startIndex: Int
     let initialWPM: Double
+    let isSampleText: Bool
     let onExit: () -> Void
     
     @StateObject private var viewModel = RSVPViewModel()
     @ObservedObject private var settings = SettingsManager.shared
-    
+
     @State private var showControls = true
     @State private var showUI = true
     @State private var uiHideTimer: Timer? = nil
     @AppStorage("hasShownSpeedHint") private var hasShownSpeedHint = false
     @State private var showSpeedHint: Bool
-    
+
     @AppStorage("hasShownContextPeekHint") private var hasShownContextPeekHint = false
     @State private var showContextPeekHint: Bool
-    
-    @AppStorage("hasShownPlayPauseHint") private var hasShownPlayPauseHint = false
-    @State private var showPlayPauseHint: Bool
-    
-    init(text: String, documentId: UUID?, startIndex: Int, initialWPM: Double, onExit: @escaping () -> Void) {
+
+    // Session reader mode: the document's override, falling back to the global
+    // default. Tutorial docs are always RSVP (its gestures are RSVP-only).
+    @State private var currentMode: ReaderMode
+
+    // Word picker — the reading -> RSVP handoff state
+    @State private var isWordPickerActive = false
+    @State private var pickerSelectedWordIndex: Int? = nil
+
+    init(text: String, documentId: UUID?, startIndex: Int, initialWPM: Double, isSampleText: Bool = false, onExit: @escaping () -> Void) {
         self.text = text
         self.documentId = documentId
         self.startIndex = startIndex
         self.initialWPM = initialWPM
+        self.isSampleText = isSampleText
         self.onExit = onExit
-        // Initialize showSpeedHint based on UserDefaults
-        _showSpeedHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownSpeedHint"))
-        _showContextPeekHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownContextPeekHint"))
-        _showPlayPauseHint = State(initialValue: !UserDefaults.standard.bool(forKey: "hasShownPlayPauseHint"))
+        // For sample text: hints start hidden and are triggered by specific words
+        // For regular books: show hints immediately if not yet shown
+        _showSpeedHint = State(initialValue: isSampleText ? false : !UserDefaults.standard.bool(forKey: "hasShownSpeedHint"))
+        _showContextPeekHint = State(initialValue: isSampleText ? false : !UserDefaults.standard.bool(forKey: "hasShownContextPeekHint"))
+
+        let documentMode = documentId.flatMap { id in
+            LibraryManager.shared.documents.first(where: { $0.id == id })?.readerMode
+        }
+        _currentMode = State(initialValue: isSampleText ? .rsvp : (documentMode ?? SettingsManager.shared.readerMode))
     }
     
     @State private var currentWPMDisplay: Double? = nil
     @State private var hideWPMTimer: Timer? = nil
     @State private var lastDragY: CGFloat? = nil
-    
+
+    // Gated first-run tutorial (inert unless attached in onAppear)
+    @StateObject private var tutorial = TutorialController()
+    @AppStorage("hasCompletedTutorial") private var hasCompletedTutorial = false
+
     // Context Peek state
     @State private var showContextPeek = false
     @State private var peekIndex: Int = 0
     @State private var peekBaseIndex: Int = 0
     @State private var originalPeekIndex: Int = 0
     @State private var peekDragOffset: CGFloat = 0
+    // Whether peek was already open when the current peek-zone drag began —
+    // the left-edge exit swipe must not fire mid-scroll-session
+    @State private var peekZoneDragActive = false
+    @State private var peekOpenAtDragStart = false
     @State private var wasPlayingBeforePeek = false
-    
+
+    // Double-tap tracking (manual, to avoid SwiftUI's single-tap delay)
+    @State private var lastRightTapTime: Date = .distantPast
+    @State private var lastLeftTapTime: Date = .distantPast
+
     // Navigation & Search state
     @State private var showSearch = false
     @State private var showChapterList = false
@@ -58,6 +82,7 @@ struct RSVPView: View {
     @State private var wasPlayingBeforeScrub = false
     @State private var preScrubIndex: Int? = nil
     @State private var showReturnPrompt = false
+    @State private var pillJumpDestinationIndex: Int? = nil
     
     // View lifecycle guard — prevents late-firing async callbacks from
     // overwriting progress after the user has already exited the reader
@@ -72,61 +97,46 @@ struct RSVPView: View {
     @State private var figurePanOffset: CGSize = .zero
     @State private var figureLastPanOffset: CGSize = .zero
     
+    // Dictionary State
+    @State private var wordToDefine: DefinedWord? = nil
+    
     var body: some View {
         GeometryReader { mainGeo in
             let isLandscape = mainGeo.size.width > mainGeo.size.height
             let landscapeScale = isLandscape ? 1.5 : 1.0
             
             ZStack {
-                // Background - only tap-to-play in speed reader mode (not paragraph)
+                // Background
                 settings.backgroundColor
                     .ignoresSafeArea()
                     .onTapGesture {
-                        if settings.readerMode == .paragraph {
-                            toggleParagraphUI()
+                        if currentMode == .reading {
+                            toggleReadingUI()
                         } else {
                             handlePlayPause()
                         }
                     }
-                
+
                 // Reader Content
-                    if settings.readerMode == .paragraph {
-                        if #available(iOS 17.0, *) {
-                            ParagraphView(
-                                viewModel: viewModel,
-                                onTap: { toggleParagraphUI() },
-                                onWordTap: { wordIndex in
-                                    viewModel.goToIndex(wordIndex)
-                                },
-                                onScroll: {
-                                    if viewModel.isPlaying {
-                                        viewModel.togglePlayPause()
-                                    }
-                                },
-                                onSpeedScrub: { deltaY in
-                                    let sensitivity: Double = 0.5
-                                    let wpmDelta = -deltaY * sensitivity
-                                    let newWPM = viewModel.wordsPerMinute + wpmDelta
-                                    viewModel.wordsPerMinute = min(max(newWPM, viewModel.minWPM), viewModel.maxWPM)
-                                    currentWPMDisplay = viewModel.wordsPerMinute
-                                    hideWPMTimer?.invalidate()
-                                    if showSpeedHint {
-                                        hasShownSpeedHint = true
-                                        withAnimation(.easeOut(duration: 0.3)) { showSpeedHint = false }
-                                    }
-                                },
-                                onSpeedScrubEnded: {
-                                    hideWPMTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
-                                        withAnimation { currentWPMDisplay = nil }
-                                    }
+                    if currentMode == .reading {
+                        NormalReadingView(
+                            viewModel: viewModel,
+                            settings: settings,
+                            onTap: { toggleReadingUI() },
+                            onWordLongPress: { word in
+                                viewModel.pause()
+                                let cleanWord = word.cleanForDictionary()
+                                if !cleanWord.isEmpty {
+                                    wordToDefine = DefinedWord(term: cleanWord)
                                 }
-                            )
-                            .padding(.top, 60)
-                        } else {
-                            Text("Paragraph View requires iOS 17 or later")
-                                .foregroundColor(settings.textColor)
-                                .padding()
-                        }
+                            },
+                            isWordPickerActive: isWordPickerActive,
+                            pickerSelectedWordIndex: pickerSelectedWordIndex,
+                            onWordPicked: { globalIndex in
+                                handleWordPicked(globalIndex)
+                            }
+                        )
+                        .ignoresSafeArea()
                     } else {
                     // Word Display (centered with ORP anchor)
                     WordDisplayView(
@@ -139,8 +149,29 @@ struct RSVPView: View {
                     .offset(y: (showFigureViewer && !showFigureExpanded) ? mainGeo.size.height * 0.15 : 0)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showFigureViewer)
                     .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showFigureExpanded)
+                    .onLongPressGesture(minimumDuration: 0.25) {
+                        viewModel.pause()
+                        tutorial.reportLongPressStarted()
+                        let cleanWord = viewModel.currentWord.cleanForDictionary()
+                        if !cleanWord.isEmpty {
+                            wordToDefine = DefinedWord(term: cleanWord)
+                        }
+                        let impact = UIImpactFeedbackGenerator(style: .medium)
+                        impact.impactOccurred()
+                    }
                     .onTapGesture {
                         handlePlayPause()
+                    }
+
+                    // Dialogue indicator bar (right side)
+                    if settings.showDialogueIndicator {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .fill(settings.accentColor.opacity(viewModel.isInsideDialogue ? 0.35 : 0))
+                            .frame(width: 2.5, height: 30)
+                            .position(x: mainGeo.size.width * 0.85, y: mainGeo.size.height / 2)
+                            .offset(y: (showFigureViewer && !showFigureExpanded) ? mainGeo.size.height * 0.15 : 0)
+                            .animation(.easeInOut(duration: 0.15), value: viewModel.isInsideDialogue)
+                            .allowsHitTesting(false)
                     }
                 }
                 
@@ -151,10 +182,17 @@ struct RSVPView: View {
                     // In RSVP mode: fades when playing
                     ZStack {
                         // Progress indicator (Centered absolutely)
-                        Text("Chapter \(viewModel.chapterProgressPercentage)% · Book \(viewModel.bookProgressPercentage)%")
-                            .font(.custom("EBGaramond-Regular", size: 16))
-                            .foregroundColor(Color(hex: "555555"))
-                        
+                        // During the tutorial, chapter/book progress is replaced by the step count
+                        if tutorial.isActive && tutorial.currentStep != .finished {
+                            Text("\(tutorial.currentStepNumber) of \(TutorialController.totalSteps)")
+                                .font(.custom("EBGaramond-Regular", size: 16))
+                                .foregroundColor(Color(hex: "555555"))
+                        } else {
+                            Text("Chapter \(viewModel.chapterProgressPercentage)% · Book \(viewModel.bookProgressPercentage)%")
+                                .font(.custom("EBGaramond-Regular", size: 16))
+                                .foregroundColor(Color(hex: "555555"))
+                        }
+
                         HStack {
                             Button(action: { saveProgressAndExit() }) {
                                 Image(systemName: "xmark")
@@ -162,10 +200,35 @@ struct RSVPView: View {
                                     .foregroundColor(Color(hex: "555555"))
                                     .padding(12)
                             }
-                            
+
                             Spacer()
-                            
+
                             HStack(spacing: 0) {
+                                // Quiet tutorial escape hatch — the doc stays in the library
+                                if tutorial.isActive {
+                                    Button(action: {
+                                        hasCompletedTutorial = true
+                                        tutorial.deactivate()
+                                        saveProgressAndExit()
+                                    }) {
+                                        Text("Skip")
+                                            .font(.custom("EBGaramond-Regular", size: 15))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .padding(12)
+                                    }
+                                }
+
+                                // Reader mode toggle (hidden for the tutorial — its
+                                // gesture teaching is RSVP-only)
+                                if !isSampleText {
+                                    Button(action: { toggleMode() }) {
+                                        Image(systemName: currentMode == .reading ? "text.word.spacing" : "text.alignleft")
+                                            .font(.system(size: 20, weight: .light))
+                                            .foregroundColor(Color(hex: "555555"))
+                                            .padding(12)
+                                    }
+                                }
+
                                 // Settings button
                                 Button(action: {
                                     viewModel.pause()
@@ -178,13 +241,14 @@ struct RSVPView: View {
                                         .foregroundColor(Color(hex: "555555"))
                                         .padding(12)
                                 }
-        
+
                                 // Restart button
-                                Button(action: { 
+                                Button(action: {
                                     let currentIndex = viewModel.currentIndex
-                                    viewModel.reset() 
+                                    viewModel.reset()
                                     if currentIndex > 100 {
                                         preScrubIndex = currentIndex
+                                        pillJumpDestinationIndex = viewModel.currentIndex
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                             showReturnPrompt = true
                                         }
@@ -199,6 +263,9 @@ struct RSVPView: View {
                         }
                     }
                     .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .frame(maxWidth: .infinity)
+                    .background(currentMode == .reading ? settings.backgroundColor : Color.clear)
                     .opacity(showUI ? 1.0 : 0.0)
                     .animation(.easeOut(duration: 0.5), value: showUI)
                     .allowsHitTesting(showUI)
@@ -206,8 +273,8 @@ struct RSVPView: View {
                     Spacer()
                     
                     // Bottom controls - [Sections] [◀10] [Play/Pause] [10▶] [Search]
-                    // Only show in RSVP mode (not paragraph mode)
-                    if settings.readerMode != .paragraph {
+                    // Only show in RSVP mode (not reading mode)
+                    if currentMode != .reading {
                         HStack(spacing: 24) {
                             // Sections button (opens chapter/heading list)
                             Button(action: {
@@ -294,7 +361,7 @@ struct RSVPView: View {
                         .animation(.easeOut(duration: 0.5), value: showUI)
                         .allowsHitTesting(showUI)
                     } else {
-                        // Controls for paragraph mode - [Sections] [Search]
+                        // Controls for reading mode - [Sections] [Search]
                         HStack(spacing: 40) {
                             // Sections button
                             Button(action: {
@@ -326,18 +393,21 @@ struct RSVPView: View {
                             }
                             .buttonStyle(ScaleButtonStyle())
                         }
+                        .frame(maxWidth: .infinity)
                         .padding(.bottom, 24)
+                        .padding(.top, 8)
+                        .background(settings.backgroundColor)
                         .opacity(showUI ? 1.0 : 0.0)
                         .animation(.easeOut(duration: 0.5), value: showUI)
                         .allowsHitTesting(showUI)
                     }
                 }
-                .zIndex(10) // Ensure buttons are above ParagraphView
+                .zIndex(10) // Ensure buttons are above reader content
                 
                 // Speed control zone & Feedback Overlay
                 GeometryReader { geo in
                     // Swipe zone covers right third of screen, full height (Speed Reader Mode only)
-                    if settings.readerMode != .paragraph {
+                    if currentMode != .reading {
                         let isFigureVisible = showFigureViewer && !showFigureExpanded
                         let zoneHeight = isFigureVisible ? geo.size.height * 0.5 : geo.size.height
                         let zoneY = isFigureVisible ? geo.size.height * 0.75 : geo.size.height * 0.5
@@ -366,7 +436,9 @@ struct RSVPView: View {
                                     // Show WPM feedback
                                     currentWPMDisplay = viewModel.wordsPerMinute
                                     hideWPMTimer?.invalidate()
-                                    
+
+                                    tutorial.reportSpeedGestureActive()
+
                                     // Hide the initial hint after first use
                                     if showSpeedHint {
                                         hasShownSpeedHint = true
@@ -386,7 +458,23 @@ struct RSVPView: View {
                                 }
                         )
                         .onTapGesture {
-                            handlePlayPause()
+                            let now = Date()
+                            let elapsed = now.timeIntervalSince(lastRightTapTime)
+                            lastRightTapTime = now
+
+                            if elapsed < 0.3 {
+                                // Double-tap: undo the play/pause from first tap, then skip
+                                handlePlayPause()
+                                let wasPlaying = viewModel.isPlaying
+                                viewModel.skipForward(seconds: 10)
+                                if wasPlaying { viewModel.play() }
+                                let impact = UIImpactFeedbackGenerator(style: .medium)
+                                impact.impactOccurred()
+                                lastRightTapTime = .distantPast
+                            } else {
+                                // Single tap: immediate play/pause
+                                handlePlayPause()
+                            }
                         }
                     } // End if not paragraph mode (gesture zone)
                     
@@ -429,25 +517,26 @@ struct RSVPView: View {
                         .position(x: geo.size.width * 0.15, y: isFigureVisible ? geo.size.height * 0.70 : geo.size.height * 0.55)
                         .transition(.opacity)
                     }
-                    
-                    // Play/Pause Hint (Center)
-                    if showPlayPauseHint {
-                        let isFigureVisible = showFigureViewer && !showFigureExpanded
-                        VStack(spacing: 8) {
-                            Image(systemName: "hand.tap")
-                            .font(.system(size: 24))
-                            Text("Tap to\nplay/pause")
+
+                    // Tutorial checkpoint hint — stays until the gesture is performed
+                    if let hint = tutorial.activeHint {
+                        TutorialHintOverlay(icon: hint.hintIcon, text: hint.hintText)
+                            .position(tutorialHintPoint(for: hint.hintPosition, in: geo))
+                    }
+
+                    // Grace-period beat before the stream restarts
+                    if tutorial.isGracePeriod {
+                        Text("Resuming…")
                             .font(.custom("EBGaramond-Regular", size: 14))
-                            .multilineTextAlignment(.center)
-                        }
-                        .foregroundColor(Color(hex: "555555"))
-                        .position(x: geo.size.width * 0.5, y: isFigureVisible ? geo.size.height * 0.78 : geo.size.height * 0.68)
-                        .transition(.opacity)
+                            .foregroundColor(settings.mutedTextColor)
+                            .position(x: geo.size.width * 0.5, y: geo.size.height * 0.62)
+                            .transition(.opacity)
+                            .allowsHitTesting(false)
                     }
                 } // End GeometryReader
                 
-                // Context Peek zone - only in speed reader mode (not paragraph mode)
-                if settings.readerMode != .paragraph {
+                // Context Peek zone - only in speed reader mode
+                if currentMode != .reading {
                     GeometryReader { geo in
                         let isFigureVisible = showFigureViewer && !showFigureExpanded
                         let peekZoneHeight = isFigureVisible ? geo.size.height * 0.5 : geo.size.height * 0.7
@@ -459,8 +548,24 @@ struct RSVPView: View {
                             .frame(width: geo.size.width * 0.35, height: peekZoneHeight)
                             .position(x: geo.size.width * 0.15, y: peekZoneY)
                             .gesture(
-                                DragGesture()
+                                DragGesture(coordinateSpace: .global)
                                     .onChanged { value in
+                                        if !peekZoneDragActive {
+                                            peekZoneDragActive = true
+                                            peekOpenAtDragStart = showContextPeek
+                                        }
+
+                                        // Left-edge swipe-to-exit: horizontal right swipe from left
+                                        // edge — but never mid-peek-session, where a scroll drag
+                                        // drifting right must not exit the reader
+                                        if !peekOpenAtDragStart &&
+                                            value.startLocation.x < 40 &&
+                                            value.translation.width > 50 &&
+                                            abs(value.translation.height) < 40 {
+                                            saveProgressAndExit()
+                                            return
+                                        }
+
                                         // Show context peek on first drag
                                         if !showContextPeek {
                                             // Dismiss hint if visible
@@ -492,13 +597,30 @@ struct RSVPView: View {
                                         peekDragOffset = value.translation.height.truncatingRemainder(dividingBy: sensitivity)
                                     }
                                     .onEnded { _ in
+                                        peekZoneDragActive = false
                                         // Update base index to current peek position for continuous scrolling
                                         peekBaseIndex = peekIndex
                                         peekDragOffset = 0
                                     }
                             )
                             .onTapGesture {
-                                handlePlayPause()
+                                let now = Date()
+                                let elapsed = now.timeIntervalSince(lastLeftTapTime)
+                                lastLeftTapTime = now
+
+                                if elapsed < 0.3 {
+                                    // Double-tap: undo the play/pause from first tap, then skip
+                                    handlePlayPause()
+                                    let wasPlaying = viewModel.isPlaying
+                                    viewModel.skipBackward(seconds: 10)
+                                    if wasPlaying { viewModel.play() }
+                                    let impact = UIImpactFeedbackGenerator(style: .medium)
+                                    impact.impactOccurred()
+                                    lastLeftTapTime = .distantPast
+                                } else {
+                                    // Single tap: immediate play/pause
+                                    handlePlayPause()
+                                }
                             }
                     }
                 }
@@ -535,7 +657,7 @@ struct RSVPView: View {
                                                 HStack(spacing: 0) {
                                                     ForEach(Array(viewModel.word(at: wordIndex).enumerated()), id: \.offset) { charIndex, character in
                                                         let word = viewModel.word(at: wordIndex)
-                                                        let orpIndex = word.count <= 1 ? 0 : 1
+                                                        let orpIndex = FontMetricsCache.orpIndex(for: word)
                                                         let isORP = (offset == 0 && charIndex == orpIndex)
                                                         let fontSize = (offset == 0 ? 40 : 20) * settings.fontSizeMultiplier
                                                         
@@ -634,7 +756,7 @@ struct RSVPView: View {
                 // Progress bar at bottom
                 VStack(spacing: 0) {
                     Spacer()
-                    
+
                     GeometryReader { geometry in
                         ZStack(alignment: .bottom) {
                             // Visual Bar (remains thin and sleek)
@@ -642,68 +764,59 @@ struct RSVPView: View {
                                 Rectangle()
                                     .fill(settings.progressBarBackgroundColor)
                                     .frame(height: 3)
-                                
+
                                 Rectangle()
                                     .fill(settings.accentColor)
-                                    // Use scrubProgress if scrubbing, otherwise viewModel.progress
                                     .frame(width: geometry.size.width * (isScrubbing ? scrubProgress : viewModel.progress), height: 3)
                             }
                             .frame(height: 3)
-                            
+
                             // Interaction Zone (Invisible, larger touch target)
+                            // 20pt keeps the zone below the bottom control buttons
                             Color.clear
-                                .frame(height: 50) // Generous hit target
+                                .frame(height: 20)
                                 .contentShape(Rectangle())
                                 .gesture(
                                     DragGesture(minimumDistance: 0)
                                         .onChanged { value in
                                             if !isScrubbing {
-                                                // Deadzone: Wait for intentional movement
-                                                // This prevents micro-jitters from triggering or failing the lock too early
                                                 if abs(value.translation.width) < 10 && abs(value.translation.height) < 10 {
                                                     return
                                                 }
-                                                
-                                                // Directional Lock: Check if movement is primarily vertical (Home Swipe)
-                                                // Only enforce this if vertical movement is significant
                                                 if abs(value.translation.height) > abs(value.translation.width) * 1.2 {
-                                                    return // Likely a home swipe, ignore
+                                                    return
                                                 }
-                                                
-                                                // 2. Start scrubbing
                                                 isScrubbing = true
                                                 wasPlayingBeforeScrub = viewModel.isPlaying
                                                 preScrubIndex = viewModel.currentIndex
+                                                // The drag mutates currentIndex via updateIndexOnly,
+                                                // so hand goToIndex the true departure point now
+                                                viewModel.markDepartureForNextJump(viewModel.currentIndex)
                                                 viewModel.pause()
                                                 let generator = UIImpactFeedbackGenerator(style: .light)
                                                 generator.impactOccurred()
                                             }
-                                            
-                                            // Calculate progress
+
                                             let progress = min(max(value.location.x / geometry.size.width, 0), 1)
                                             scrubProgress = progress
-                                            
-                                            // Convert to index
                                             let newIndex = Int(progress * Double(viewModel.totalWords - 1))
                                             scrubIndex = newIndex
-                                            
-                                            // Live update (fluid scrubbing)
                                             viewModel.updateIndexOnly(newIndex)
                                         }
                                         .onEnded { _ in
-                                            // Only commit if we actually started scrubbing
                                             if isScrubbing {
                                                 isScrubbing = false
                                                 viewModel.goToIndex(scrubIndex)
-                                                
+
                                                 if let prevIndex = preScrubIndex, abs(scrubIndex - prevIndex) > 100 {
+                                                    pillJumpDestinationIndex = scrubIndex
                                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                                         showReturnPrompt = true
                                                     }
                                                 } else {
                                                     showReturnPrompt = false
                                                 }
-                                                
+
                                                 let generator = UIImpactFeedbackGenerator(style: .medium)
                                                 generator.impactOccurred()
                                             }
@@ -712,48 +825,106 @@ struct RSVPView: View {
                         }
                         .frame(maxHeight: .infinity, alignment: .bottom)
                     }
-                    .frame(height: 50) // Container height
+                    .frame(height: 20)
                     .padding(.bottom, 0)
                 }
-                .padding(.bottom, 8) // Reduced from 24 to 8 for a lower profile (closer to bottom)
+                .padding(.bottom, 8)
                 .ignoresSafeArea(.all, edges: [.horizontal])
+                .zIndex(10)
                 .opacity(showUI ? 1.0 : 0.0)
                 .animation(.easeOut(duration: 0.5), value: showUI)
                 .allowsHitTesting(showUI)
-                
+
                 // Return Prompt Overlay
                 if showReturnPrompt {
                     VStack {
                         Spacer()
-                        Button(action: {
-                            if let idx = preScrubIndex {
-                                viewModel.goToIndex(idx)
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                if let idx = preScrubIndex {
+                                    viewModel.goToIndex(idx)
+                                    preScrubIndex = nil
+                                    pillJumpDestinationIndex = nil
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        showReturnPrompt = false
+                                    }
+                                }
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.uturn.backward")
+                                        .font(.system(size: 14, weight: .light))
+                                    Text("Return to position")
+                                        .font(.custom("EBGaramond-Regular", size: 16))
+                                }
+                                .foregroundColor(settings.textColor)
+                            }
+
+                            Button(action: {
                                 preScrubIndex = nil
+                                pillJumpDestinationIndex = nil
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     showReturnPrompt = false
                                 }
+                            }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .light))
+                                    .foregroundColor(settings.textColor.opacity(0.5))
                             }
-                        }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.uturn.backward")
-                                    .font(.system(size: 14, weight: .light))
-                                Text("Return to position")
-                                    .font(.custom("EBGaramond-Regular", size: 16))
-                            }
-                            .foregroundColor(settings.textColor)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule()
-                                    .fill(settings.backgroundColor)
-                                    .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(settings.cardBorderColor, lineWidth: 0.5)
-                            )
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(settings.backgroundColor)
+                                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(settings.cardBorderColor, lineWidth: 0.5)
+                        )
                         .padding(.bottom, 80) // Position above the progress bar and buttons
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    .zIndex(100)
+                }
+
+                // Word Picker Banner (reading -> RSVP handoff)
+                if isWordPickerActive {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 12) {
+                            Text("Tap a word to start there")
+                                .font(.custom("EBGaramond-Regular", size: 16))
+                                .foregroundColor(settings.textColor)
+
+                            Button(action: { confirmWordPickerSelection() }) {
+                                HStack(spacing: 6) {
+                                    Text("Start here")
+                                        .font(.custom("EBGaramond-Regular", size: 16))
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 10, weight: .light))
+                                }
+                                .foregroundColor(settings.accentColor)
+                            }
+
+                            Button(action: { cancelWordPicker() }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .light))
+                                    .foregroundColor(settings.textColor.opacity(0.5))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            Capsule()
+                                .fill(settings.backgroundColor)
+                                .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(settings.cardBorderColor, lineWidth: 0.5)
+                        )
+                        .padding(.bottom, 80)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     .zIndex(100)
@@ -761,6 +932,40 @@ struct RSVPView: View {
             // --- FIGURE OVERLAYS (extracted to fix type-check timeout) ---
             figureHalfScreenOverlay(geo: mainGeo)
             figureExpandedOverlay()
+
+            // Tutorial finale — "you just read at N WPM" payoff card
+            if tutorial.showStatCard {
+                TutorialStatCardView(wpm: tutorial.finalWPMAchieved) {
+                    hasCompletedTutorial = true
+                    // The tutorial already taught both gestures — skip the
+                    // first-book coach marks for speed and peek
+                    hasShownSpeedHint = true
+                    hasShownContextPeekHint = true
+                    tutorial.deactivate()
+                    saveProgressAndExit()
+                }
+                .zIndex(300)
+            }
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 50, coordinateSpace: .global)
+                    .onChanged { value in
+                        guard !showFigureViewer,
+                              !showFigureExpanded,
+                              !isScrubbing,
+                              !showContextPeek,
+                              value.startLocation.y < mainGeo.size.height - 80,
+                              value.translation.width > 100,
+                              value.translation.width > abs(value.translation.height) * 2.0 else {
+                            return
+                        }
+                        saveProgressAndExit()
+                    }
+            )
+            .sheet(item: $wordToDefine, onDismiss: {
+                tutorial.reportDictionarySheetDismissed()
+            }) { definedWord in
+                DictionaryView(term: definedWord.term)
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
                 viewModel.pause()
@@ -774,7 +979,9 @@ struct RSVPView: View {
             .onChange(of: viewModel.figureToShow) { _, figure in
                 guard let figure = figure else { return }
                 // Already paused by ViewModel — just load image and show overlay
-                if let docId = documentId {
+                if isSampleText {
+                    figureImage = UIImage(named: figure.imageFileName)
+                } else if let docId = documentId {
                     figureImage = LibraryManager.shared.loadFigureImage(for: docId, fileName: figure.imageFileName)
                 }
                 uiHideTimer?.invalidate()
@@ -796,30 +1003,66 @@ struct RSVPView: View {
                 // Unlock orientation for RSVP view
                 OrientationManager.orientationLock = .allButUpsideDown
                 
+                // An unfinished tutorial always restarts from the beginning so the
+                // checkpoint/gate sequence runs a clean, complete pass
+                let effectiveStartIndex = (isSampleText && !hasCompletedTutorial) ? 0 : startIndex
+
                 // Set initial progress immediately so early exits don't overwrite saved index
-                viewModel.currentIndex = startIndex
+                viewModel.currentIndex = effectiveStartIndex
                 
-                // Start auto-hide timer for Paragraph Mode
-                if settings.readerMode == .paragraph {
-                    toggleParagraphUI()
+                // Start auto-hide timer for Reading Mode
+                if currentMode == .reading {
+                    toggleReadingUI()
                 }
                 
                 // Use async loading for large documents to avoid blocking UI
                 viewModel.loadTextAsync(
                     text,
-                    startingAt: startIndex,
+                    startingAt: effectiveStartIndex,
                     fontName: settings.fontName,
                     fontSizeMultiplier: settings.fontSizeMultiplier
                 ) {
                     // Guard: if the user exited before loading finished, skip post-load
                     // setup — the correct index was already saved from onDisappear.
                     guard isViewActive else { return }
-                    
+
                     // Setup navigation points after loading
                     if let docId = documentId,
                        let doc = LibraryManager.shared.documents.first(where: { $0.id == docId }) {
                         viewModel.setNavigationPoints(doc.navigationPoints)
-                        viewModel.setFigureAnnotations(doc.figureAnnotations)
+                        viewModel.setPositionHistory(doc.positionHistory)
+                        // Restore smart-pacing familiarity (faded by time away).
+                        // doc.lastReadDate still holds the previous session's
+                        // date here — progress updates only start after load.
+                        viewModel.seedRarityFamiliarity(doc.rarityFamiliarity ?? [:], lastReadDate: doc.lastReadDate)
+                        // If it's sample text, inject the tutorial figure programmatically,
+                        // anchored to the end of "...no copy-pasting needed."
+                        if isSampleText {
+                            if let neededIndex = viewModel.words.firstIndex(where: { $0.hasPrefix("needed") }) {
+                                let extensionScreenFigure = FigureAnnotation(
+                                    id: UUID(),
+                                    wordIndex: neededIndex + 1,
+                                    caption: nil,
+                                    imageFileName: "tutorial_extension_screen"
+                                )
+                                viewModel.setFigureAnnotations([extensionScreenFigure])
+                            }
+                            // Arm the gated tutorial on the first pass only —
+                            // once completed/skipped, the doc plays like any other
+                            if !hasCompletedTutorial {
+                                tutorial.requestResume = {
+                                    guard !showContextPeek, wordToDefine == nil,
+                                          !viewModel.isPlaying else { return }
+                                    viewModel.play()
+                                }
+                                tutorial.attach(viewModel: viewModel)
+                                viewModel.shouldAdvance = { [weak tutorial] index in
+                                    tutorial?.shouldAdvance(pastIndex: index) ?? true
+                                }
+                            }
+                        } else {
+                            viewModel.setFigureAnnotations(doc.figureAnnotations)
+                        }
                     } else {
                         // Generate page-based navigation for documents without stored nav points
                         let pages = PageChunker.createPages(from: viewModel.words)
@@ -829,13 +1072,26 @@ struct RSVPView: View {
                 viewModel.wordsPerMinute = initialWPM
                 
                 // Bind the periodic progress updates from the view model
-                viewModel.onProgressUpdate = { index, wpm in
+                viewModel.onProgressUpdate = { [weak viewModel] index, wpm in
                     if let docId = documentId {
                         LibraryManager.shared.updateProgress(
                             for: docId,
                             wordIndex: index,
                             wpm: wpm
                         )
+                        if let viewModel {
+                            LibraryManager.shared.updateRarityFamiliarity(
+                                for: docId,
+                                counts: viewModel.rarityFamiliaritySnapshot
+                            )
+                        }
+                    }
+                }
+
+                // Persist position snapshots (sample text keeps in-memory history only)
+                viewModel.onSnapshotRecorded = { snapshot in
+                    if let docId = documentId {
+                        LibraryManager.shared.recordPositionSnapshot(for: docId, snapshot)
                     }
                 }
             }
@@ -862,15 +1118,51 @@ struct RSVPView: View {
                     sharedApp.isIdleTimerDisabled = isPlaying
                 }
             }
-            .statusBarHidden(true)
+            .onChange(of: viewModel.currentIndex) { _, newIndex in
+                if newIndex >= viewModel.totalWords - 1 && viewModel.totalWords > 0 {
+                    // Document reached the end, show UI automatically
+                    withAnimation { showUI = true }
+                }
+                if isSampleText {
+                    tutorial.applyRampIfNeeded(currentIndex: newIndex)
+                    // The playback loop increments one past the last word when
+                    // the final word's display time elapses
+                    if newIndex >= viewModel.totalWords && viewModel.totalWords > 0 {
+                        tutorial.documentDidFinish()
+                    }
+                }
+
+                // Auto-dismiss the "Return to position" pill once the user has
+                // read ~100 words past the spot they jumped to
+                if showReturnPrompt, !isScrubbing, let dest = pillJumpDestinationIndex,
+                   newIndex - dest > 100 {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showReturnPrompt = false
+                    }
+                    preScrubIndex = nil
+                    pillJumpDestinationIndex = nil
+                }
+
+                // While picking a start word, the default follows the user's
+                // scrolling (currentIndex only moves on user scrolls) so
+                // "Start here" always means the visible highlight.
+                if isWordPickerActive, pickerSelectedWordIndex != newIndex {
+                    pickerSelectedWordIndex = newIndex
+                }
+            }
+            .statusBarHidden(!showUI)
             .sheet(isPresented: $showChapterList) {
                 ChapterListView(viewModel: viewModel, isPresented: $showChapterList)
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(settings.backgroundColor)
             }
             .sheet(isPresented: $showSettings) {
-                SettingsView()
+                SettingsView(sessionMode: currentMode)
+                    .presentationDragIndicator(.visible)
+                    .presentationBackground(settings.backgroundColor)
             }
             .fullScreenCover(isPresented: $showSearch) {
-                WordSearchView(viewModel: viewModel, isPresented: $showSearch)
+                wordSearchCover()
             }
         }
     }
@@ -884,6 +1176,10 @@ struct RSVPView: View {
                 for: docId,
                 wordIndex: indexToSave,
                 wpm: viewModel.wordsPerMinute
+            )
+            LibraryManager.shared.updateRarityFamiliarity(
+                for: docId,
+                counts: viewModel.rarityFamiliaritySnapshot
             )
         }
     }
@@ -900,43 +1196,106 @@ struct RSVPView: View {
         peekDragOffset = 0
         peekBaseIndex = 0
         wasPlayingBeforePeek = false
+        tutorial.reportPeekDismissed()
     }
     
-    private func toggleParagraphUI() {
-        // Show UI and start auto-hide timer
-        withAnimation {
-            showUI = true
+    // MARK: - Reader Mode Switching
+
+    private func toggleMode() {
+        if currentMode == .rsvp {
+            // RSVP -> Reading: the current word's paragraph anchors to the top
+            // and NormalReadingView highlights the exact word on appear.
+            viewModel.pause()
+            currentMode = .reading
+            persistCurrentMode()
+            uiHideTimer?.invalidate()
+            withAnimation { showUI = true }
+        } else if isWordPickerActive {
+            // Toggling while picking = cancel; stay in reading mode untouched.
+            cancelWordPicker()
+        } else {
+            enterWordPickerState()
         }
-        
-        // Cancel any existing timer
+    }
+
+    private func persistCurrentMode() {
+        if let docId = documentId {
+            LibraryManager.shared.setReaderMode(currentMode, for: docId)
+        }
+    }
+
+    private func enterWordPickerState() {
+        viewModel.pause()
         uiHideTimer?.invalidate()
-        
-        // Auto-hide after 3 seconds
-        uiHideTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-            withAnimation {
-                showUI = false
+        withAnimation { showUI = true }
+        // Default = the current position (first word of the top-visible
+        // paragraph if the user has scrolled, the exact word otherwise).
+        pickerSelectedWordIndex = viewModel.currentIndex
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            isWordPickerActive = true
+        }
+    }
+
+    private func handleWordPicked(_ globalIndex: Int) {
+        pickerSelectedWordIndex = globalIndex
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.impactOccurred()
+        // Let the highlight flash on the chosen word before switching.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            confirmWordPickerSelection()
+        }
+    }
+
+    private func confirmWordPickerSelection() {
+        guard isWordPickerActive, let index = pickerSelectedWordIndex else { return }
+        // goToIndex BEFORE flipping the mode: the departure snapshot uses the
+        // reading position, and NormalReadingView's onDisappear then
+        // force-saves the picked index.
+        viewModel.goToIndex(index)
+        withAnimation(.easeOut(duration: 0.2)) {
+            isWordPickerActive = false
+        }
+        pickerSelectedWordIndex = nil
+        currentMode = .rsvp
+        persistCurrentMode()
+    }
+
+    private func cancelWordPicker() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            isWordPickerActive = false
+        }
+        pickerSelectedWordIndex = nil
+    }
+
+    private func toggleReadingUI() {
+        // The picker banner lives in the UI chrome — don't hide it mid-pick.
+        guard !isWordPickerActive else { return }
+        if showUI {
+            uiHideTimer?.invalidate()
+            uiHideTimer = nil
+            withAnimation { showUI = false }
+        } else {
+            withAnimation { showUI = true }
+            uiHideTimer?.invalidate()
+            uiHideTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
+                withAnimation { showUI = false }
             }
         }
     }
     
     private func handlePlayPause() {
-        if showPlayPauseHint {
-            hasShownPlayPauseHint = true
-            withAnimation(.easeOut(duration: 0.3)) {
-                showPlayPauseHint = false
-            }
+        if isScrubbing || showContextPeek {
+            return
         }
-        
+
+        tutorial.reportCenterTap()
+        // While a checkpoint waits for its gesture, tapping must not push past the gate
+        if tutorial.blocksPlayback {
+            return
+        }
+
         viewModel.togglePlayPause()
-        
-        // Hide return prompt when playing
-        if viewModel.isPlaying && showReturnPrompt {
-            withAnimation(.easeOut(duration: 0.3)) {
-                showReturnPrompt = false
-            }
-            preScrubIndex = nil
-        }
-        
+
         // Cancel any existing timer
         uiHideTimer?.invalidate()
         
@@ -966,10 +1325,25 @@ struct RSVPView: View {
         peekDragOffset = 0
         peekBaseIndex = 0
         wasPlayingBeforePeek = false
-        
+        tutorial.reportPeekDismissed()
+
         // Stay paused - user will click play when ready
     }
     
+    /// Screen position for a tutorial checkpoint hint. Side hints match the
+    /// placement of the first-launch speed/peek hints; center hints sit below
+    /// the displayed word.
+    private func tutorialHintPoint(for position: TutorialController.HintPosition, in geo: GeometryProxy) -> CGPoint {
+        switch position {
+        case .center:
+            return CGPoint(x: geo.size.width * 0.5, y: geo.size.height * 0.66)
+        case .rightEdge:
+            return CGPoint(x: geo.size.width * 0.85, y: geo.size.height * 0.55)
+        case .leftEdge:
+            return CGPoint(x: geo.size.width * 0.15, y: geo.size.height * 0.55)
+        }
+    }
+
     /// Calculate horizontal offset to center the ORP letter for context peek
     private func calculateORPOffset(for word: String, in geometry: GeometryProxy) -> CGFloat {
         guard word.count > 1 else { return 0 }
@@ -983,6 +1357,15 @@ struct RSVPView: View {
     }
     
     // MARK: - Figure Overlay Views (extracted from body to reduce type-check complexity)
+    
+    @ViewBuilder
+    private func wordSearchCover() -> some View {
+        WordSearchView(
+            viewModel: viewModel,
+            isPresented: $showSearch
+        )
+        .presentationBackground(settings.backgroundColor)
+    }
     
     @ViewBuilder
     private func figureHalfScreenOverlay(geo: GeometryProxy) -> some View {
@@ -1039,9 +1422,9 @@ struct RSVPView: View {
                     Button(action: { closeFigureViewer() }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .light))
-                            .foregroundColor(settings.secondaryTextColor)
+                            .foregroundColor(settings.textColor)
                             .frame(width: 36, height: 36)
-                            .background(Circle().fill(settings.backgroundColor.opacity(0.8)))
+                            .background(Circle().fill(settings.backgroundColor.opacity(0.8)).overlay(Circle().stroke(settings.textColor.opacity(0.2), lineWidth: 1)))
                     }
                     .padding(.top, 14)
                     .padding(.trailing, 14)
@@ -1050,7 +1433,7 @@ struct RSVPView: View {
                 .gesture(
                     DragGesture(minimumDistance: 40)
                         .onEnded { value in
-                            if value.translation.height > 80 { closeFigureViewer() }
+                            if abs(value.translation.width) + abs(value.translation.height) > 80 { closeFigureViewer() }
                         }
                 )
                 
@@ -1106,7 +1489,7 @@ struct RSVPView: View {
                                 .onEnded { value in
                                     if figureZoomScale > 1.0 {
                                         figureLastPanOffset = figurePanOffset
-                                    } else if value.translation.height > 100 {
+                                    } else if abs(value.translation.width) + abs(value.translation.height) > 100 {
                                         dismissExpandedFigure()
                                     }
                                 }
@@ -1134,7 +1517,7 @@ struct RSVPView: View {
                                 .font(.system(size: 18, weight: .light))
                                 .foregroundColor(.white)
                                 .frame(width: 40, height: 40)
-                                .background(Circle().fill(Color.white.opacity(0.2)))
+                                .background(Circle().fill(Color.black.opacity(0.6)))
                         }
                         .padding(.top, 20)
                         .padding(.trailing, 20)

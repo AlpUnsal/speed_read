@@ -127,12 +127,18 @@ class BookSearchService: ObservableObject {
     @Published var searchResults: [GutenbergBook] = []
     @Published var isSearching = false
     @Published var errorMessage: String? = nil
-    
+    @Published var genreBooks: [String: [GutenbergBook]] = [:]
+
     private let cacheFileName = "gutendex_cache.json"
     private var currentSearchTask: Task<Void, Never>?
-    
+
     // In-memory cache for genre switching so we don't hit the network every time
     private var genreCache: [String: [GutenbergBook]] = [:]
+
+    // In-memory cache for text searches so repeated queries are instant
+    private var textSearchCache: [String: [GutenbergBook]] = [:]
+    private var textSearchCacheOrder: [String] = [] // LRU tracking
+    private let textSearchCacheLimit = 20
     
     private func cacheURL(for topic: String) -> URL {
         let topicSlug = topic.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -169,6 +175,7 @@ class BookSearchService: ObservableObject {
                 } else {
                     if let books = try? JSONDecoder().decode([GutenbergBook].self, from: data) {
                         self.genreCache[topic] = books
+                        self.genreBooks[topic] = books
                     }
                 }
             }
@@ -320,35 +327,65 @@ class BookSearchService: ObservableObject {
                         allResults = response.results
                     }
                 } else {
-                    async let searchResponse: GutendexResponse? = {
-                        var components = URLComponents(string: "https://gutendex.com/books/")!
-                        components.queryItems = [
-                            URLQueryItem(name: "languages", value: "en"),
-                            URLQueryItem(name: "search", value: cleanQuery)
-                        ]
-                        return try? await fetchBooks(from: components)
-                    }()
-                    
-                    async let topicResponse: GutendexResponse? = {
-                        var components = URLComponents(string: "https://gutendex.com/books/")!
-                        components.queryItems = [
-                            URLQueryItem(name: "languages", value: "en"),
-                            URLQueryItem(name: "topic", value: cleanQuery)
-                        ]
-                        return try? await fetchBooks(from: components)
-                    }()
-                    
-                    let (sRes, tRes) = await (searchResponse, topicResponse)
-                    if Task.isCancelled && !silent { return }
-                    
+                    // Check text search cache first
+                    let cacheKeyText = cleanQuery.lowercased()
+                    if let cached = textSearchCache[cacheKeyText] {
+                        allResults = cached
+                        await MainActor.run {
+                            if !silent {
+                                self.searchResults = cached
+                                self.isSearching = false
+                            }
+                        }
+                        return
+                    }
+
+                    // Progressive results: show whichever API responds first, merge the second
+                    var searchComponents = URLComponents(string: "https://gutendex.com/books/")!
+                    searchComponents.queryItems = [
+                        URLQueryItem(name: "languages", value: "en"),
+                        URLQueryItem(name: "search", value: cleanQuery)
+                    ]
+
+                    var topicComponents = URLComponents(string: "https://gutendex.com/books/")!
+                    topicComponents.queryItems = [
+                        URLQueryItem(name: "languages", value: "en"),
+                        URLQueryItem(name: "topic", value: cleanQuery)
+                    ]
+
                     var seenIds = Set<Int>()
+
+                    // Fire both requests concurrently but process results as they arrive
+                    let searchTask = Task<GutendexResponse?, Never> {
+                        return try? await fetchBooks(from: searchComponents)
+                    }
+                    let topicTask = Task<GutendexResponse?, Never> {
+                        return try? await fetchBooks(from: topicComponents)
+                    }
+
+                    // Wait for search results (usually faster) and show immediately
+                    let sRes = await searchTask.value
+                    if Task.isCancelled && !silent { return }
+
                     if let s = sRes {
                         for book in s.results {
                             if seenIds.insert(book.id).inserted {
                                 allResults.append(book)
                             }
                         }
+                        if !silent && !allResults.isEmpty {
+                            let snapshot = allResults
+                            await MainActor.run {
+                                self.searchResults = snapshot
+                                self.isSearching = false
+                            }
+                        }
                     }
+
+                    // Wait for topic results and merge
+                    let tRes = await topicTask.value
+                    if Task.isCancelled && !silent { return }
+
                     if let t = tRes {
                         for book in t.results {
                             if seenIds.insert(book.id).inserted {
@@ -356,10 +393,19 @@ class BookSearchService: ObservableObject {
                             }
                         }
                     }
-                    
+
                     if sRes == nil && tRes == nil {
                         throw URLError(.badServerResponse)
                     }
+
+                    // Cache the merged results
+                    if textSearchCacheOrder.count >= textSearchCacheLimit {
+                        let evicted = textSearchCacheOrder.removeFirst()
+                        textSearchCache.removeValue(forKey: evicted)
+                    }
+                    textSearchCache[cacheKeyText] = allResults
+                    textSearchCacheOrder.removeAll { $0 == cacheKeyText }
+                    textSearchCacheOrder.append(cacheKeyText)
                 }
                 
                 if Task.isCancelled && !silent { return }
@@ -429,11 +475,14 @@ class BookSearchService: ObservableObject {
                 // If it's pure topic/popular search with no text query, store it in memory and persistent disk
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     self.genreCache[cacheKey] = finalFilteredResults
+                    if !cacheKey.isEmpty {
+                        self.genreBooks[cacheKey] = finalFilteredResults
+                    }
                     if let finalData = try? JSONEncoder().encode(finalFilteredResults) {
                         self.saveToCache(data: finalData, for: targetTopic)
                     }
                 }
-                
+
                 if !silent {
                     self.searchResults = finalFilteredResults
                     self.isSearching = false

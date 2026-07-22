@@ -45,3 +45,7 @@ fastlane/test_output
 # Other
 *.xcuserstate
 AGENTS.md
+
+# Local build logs / scratch output
+build_output*.txt
+build_errors*.txt
