@@ -30,11 +30,18 @@ class InboxShareViewController: SLComposeServiceViewController {
                     
                     if let dict = item as? [String: Any],
                        let results = dict[NSExtensionJavaScriptPreprocessingResultsKey] as? [String: Any] {
-                        
+
                         let html = results["html"] as? String ?? ""
                         let title = results["title"] as? String ?? (results["url"] as? String) ?? "New Article"
-                        // let urlString = results["url"] as? String ?? ""
-                        
+                        let urlString = results["url"] as? String ?? ""
+
+                        // X/Twitter pages share as an app-shell DOM full of UI chrome —
+                        // fetch the post text through the tweet API instead.
+                        if let pageURL = URL(string: urlString), let statusID = TweetFetcher.statusID(from: pageURL) {
+                            self.processTweet(statusID: statusID)
+                            return
+                        }
+
                         if !html.isEmpty {
                             self.processHTMLContent(html: html, title: title)
                             return
@@ -119,6 +126,25 @@ class InboxShareViewController: SLComposeServiceViewController {
         }
     }
     
+    private func processTweet(statusID: String) {
+        TweetFetcher.fetch(statusID: statusID) { [weak self] tweet in
+            guard let self = self else { return }
+
+            guard let tweet = tweet else {
+                DispatchQueue.main.async { self.completeRequest() }
+                return
+            }
+
+            let body = TweetFetcher.documentBody(for: tweet)
+            let newDoc = ReadingDocument(name: TweetFetcher.documentTitle(for: tweet), content: body)
+            LibraryManager.saveToInbox(newDoc, content: body)
+
+            DispatchQueue.main.async {
+                self.openMainApp(documentId: newDoc.id)
+            }
+        }
+    }
+
     private func handleURL(_ url: URL) {
         let fileExtension = url.pathExtension.lowercased()
         let supportedExtensions = ["pdf", "epub", "docx", "txt", "rtf"]
@@ -145,10 +171,25 @@ class InboxShareViewController: SLComposeServiceViewController {
             return
         }
 
+        // X/Twitter serves a JS-only shell to plain fetches, so the generic
+        // download below would come back empty — use the tweet API instead.
+        if let statusID = TweetFetcher.statusID(from: url) {
+            processTweet(statusID: statusID)
+            return
+        }
+
         // Fallback for non-Safari shares (e.g. Messages app) that don't run JS
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self, let data = data, let htmlString = String(data: data, encoding: .utf8) else {
-                self?.completeRequest()
+            guard let self = self else { return }
+
+            // A shortened link (e.g. t.co) may have redirected to an X post
+            if let finalURL = response?.url, let statusID = TweetFetcher.statusID(from: finalURL) {
+                self.processTweet(statusID: statusID)
+                return
+            }
+
+            guard let data = data, let htmlString = String(data: data, encoding: .utf8) else {
+                self.completeRequest()
                 return
             }
             
